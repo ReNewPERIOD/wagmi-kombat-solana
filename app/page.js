@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
+import { Connection, PublicKey } from "@solana/web3.js";
 import { Program, AnchorProvider, web3 } from "@project-serum/anchor";
 import idl from "./idl.json";
 import { useAnchorWallet, useWallet } from "@solana/wallet-adapter-react";
@@ -9,13 +9,13 @@ import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
 /* =================== CONFIG =================== */
-const PROGRAM_ID = new PublicKey("CrwC7ekPmUmmuQPutMzBXqQ4MTydjw1EVS2Zs3wpk9fc");
+const PROGRAM_ID = new PublicKey("FB2JH7H2zKfsiXfx6YazryNYR3TziJrVM542pQbb6TTN");
 const GAME_ADDRESS = new PublicKey("DQeCu4DA43CeMFmBghXqcFtz123tgRGruCxhvqcGoW1Y");
 
-/* Only 1 video v4.mp4 */
-const VIDEO = "/v4.mp4";
+/* Single video v4 */
+const VIDEO_BG = "/v4.mp4";
 
-/* IMG */
+/* Assets unchanged */
 const IMG_FIST = "https://img.upanh.moe/1fdsF7NQ/FIST2-removebg-webp.webp";
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
 const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
@@ -24,309 +24,315 @@ const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 const styles = `
 @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap');
-body { margin: 0; overflow: hidden; background:#000; }
 
-/* SHAKES */
-@keyframes shake-light {0%{transform:translate(0);}25%{transform:translate(-3px,3px);}75%{transform:translate(3px,-3px);}100%{transform:translate(0);}}
-
-/* layout */
-.game-wrapper { position: relative; width:100vw; height:100vh; overflow:hidden; display:flex; flex-direction:column; justify-content:flex-end; }
-.bg-video { position:absolute; top:0; left:0; width:100%; height:100%; object-fit:cover; filter:brightness(.7); }
-
-/* effects */
-.hit-shake { animation:shake-light .35s ease-out; }
-
-/* hero */
-.hero-layer { position:absolute; right:3%; bottom:20%; width:25%; max-width:300px; z-index:5; pointer-events:none; filter:drop-shadow(0 0 20px cyan); }
-.fist-layer { position:absolute; right:18%; bottom:25%; width:45%; max-width:700px; z-index:6; animation:punch-loop .8s infinite ease-in-out; pointer-events:none; }
-
-@keyframes punch-loop {0%{transform:translateX(0);}20%{transform:translateX(20px);}40%{transform:translateX(-180px);}100%{transform:translateX(0);}}
-
-/* HUD bottom */
-.hud-overlay { position:relative; z-index:20; width:100%; padding:20px 40px 30px;
-  background:linear-gradient(to top, rgba(0,0,0,.98) 70%, transparent);
-  border-top:1px solid rgba(0,229,255,.3); display:flex; gap:20px; align-items:flex-end;
+body{
+  margin:0;
+  background:#000;
+  overflow:hidden;
 }
-
-.chart-hp-frame { width:100%; height:25px; background:#33000080; border:2px solid #ff3300; transform:skewX(-10deg); overflow:hidden; }
-.chart-hp-fill { height:100%; background:linear-gradient(90deg,#ff0000,#aa0000); transition:width .25s ease-out; }
-
-/* buttons */
-.combat-btn {
-  width:100%; padding:20px; font-size:1.5rem; font-family:'Rajdhani';
-  border:none; cursor:pointer; color:white; font-weight:800;
-  background:linear-gradient(90deg,#00c6ff,#0072ff);
-  clip-path: polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+.video-bg{
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+  object-fit:cover;
+  z-index:0;
+  filter:brightness(0.7);
 }
-.combat-btn:disabled { background:#555; color:#aaa; }
-
-/* loot button */
-.btn-loot { background:linear-gradient(90deg,#f1c40f,#f39c12); color:black; }
-
-/* Top-right HUD */
-.extra-hud {
-  position: fixed; top:70px; right:20px; z-index:9999;
-  width:260px; padding:12px; background:#0009; color:#0ef;
-  border:1px solid #0ef; backdrop-filter:blur(4px);
+.game-wrapper{
+  position:relative;
+  width:100vw; height:100vh;
+  overflow:hidden;
 }
+.hero-layer{
+  position:absolute;
+  right:2%;
+  bottom:20%;
+  width:25%;
+  max-width:300px;
+  z-index:4;
+  pointer-events:none;
+  filter:drop-shadow(0 0 20px #00e5ff);
+}
+.fist-layer{
+  position:absolute;
+  right:18%;
+  bottom:25%;
+  width:45%;
+  max-width:700px;
+  z-index:6;
+  pointer-events:none;
+  filter:drop-shadow(0 0 15px #00e5ff);
+}
+.hud-overlay{
+  position:absolute;
+  width:100%;
+  bottom:0;
+  padding:20px 40px 30px;
+  background:linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  z-index:20;
+  display:flex;
+  gap:20px;
+}
+.chart-hp-frame{
+  width:100%;
+  height:26px;
+  border:2px solid red;
+  background:rgba(40,0,0,0.5);
+}
+.chart-hp-fill{
+  height:100%;
+  background:red;
+  transition:width .25s;
+  box-shadow:0 0 20px red;
+}
+.combat-btn{
+  width:100%;
+  padding:18px;
+  font-size:1.3rem;
+  font-family:'Rajdhani'; font-weight:800;
+  background:#0072ff;
+  color:white;
+  border:none;
+  cursor:pointer;
+  transition:.15s;
+}
+.combat-btn:active{ transform:scale(.96); }
+.combat-btn:disabled{ background:#333; color:#999; }
+.btn-loot{ background:gold; color:black; }
 
-.music-btn { position: fixed; top:70px; left:20px; z-index:60; background:#0009; border:1px solid #0ef; color:#0ef; padding:10px; cursor:pointer; border-radius:50%; width:40px; height:40px; }
+.extra-hud{
+  position:fixed;
+  top:70px; right:20px;
+  width:260px;
+  padding:14px;
+  z-index:9999;
+  background:rgba(0,0,0,0.6);
+  border:1px solid #00e5ff;
+  backdrop-filter:blur(4px);
+  color:#00e5ff;
+  font-family:'Rajdhani';
+  text-transform:uppercase;
+}
+.music-btn{
+  position:fixed;
+  top:70px; left:20px;
+  z-index:9999;
+  background:rgba(0,0,0,0.6);
+  border:1px solid #00e5ff;
+  color:#00e5ff;
+  padding:10px;
+  border-radius:50%;
+  cursor:pointer;
+  font-size:.9rem;
+}
 `;
-
-/* helper */
-const shortenAddress = (x) => x ? x.slice(0,6)+".."+x.slice(-4) : "WAIT";
-  
-/* single video component */
-const BackgroundVideo = ({ isHit }) => {
-  const ref = useRef(null);
-  useEffect(() => {
-    if (ref.current) ref.current.play().catch(()=>{});
-  }, []);
-  return (
-    <video
-      ref={ref}
-      className={`bg-video ${isHit ? "hit-shake" : ""}`}
-      src={VIDEO}
-      autoPlay loop muted playsInline
-    />
-  );
-};
-
-/* =================== MAIN =================== */
+/* =================== MAIN COMPONENT =================== */
 export default function Home() {
-  const { publicKey, connect } = useWallet();
-  const anchorWallet = useAnchorWallet();
+  const wallet = useAnchorWallet();
+  const { publicKey } = useWallet();
 
-  const [gameState, setGameState] = useState(null);
+  const [provider, setProvider] = useState(null);
+  const [program, setProgram] = useState(null);
+  const [game, setGame] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
-  const [maxTime, setMaxTime] = useState(30);
-  const [pot, setPot] = useState(0);
-  const [isHit, setIsHit] = useState(false);
-  const [processing, setProcessing] = useState(false);
+  const [armor, setArmor] = useState(100);
   const [isClient, setIsClient] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   const audioRef = useRef(null);
-  const [isMuted, setIsMuted] = useState(true);
 
-  /* ===== Connection ===== */
-  const endpoint = clusterApiUrl("devnet");
-  const connectionRef = useRef(new Connection(endpoint, "processed"));
-  const connection = connectionRef.current;
-
-  /* Dummy wallet */
-  const dummyWallet = {
-    publicKey: new PublicKey("11111111111111111111111111111111"),
-    signTransaction: async (tx) => tx,
-    signAllTransactions: async (txs) => txs,
-  };
-
-  const getProvider = useCallback(
-    (needSigner=false) => {
-      const wallet = needSigner ? anchorWallet : (anchorWallet || dummyWallet);
-      if (needSigner && !anchorWallet) return null;
-      return new AnchorProvider(connection, wallet, AnchorProvider.defaultOptions());
-    },
-    [anchorWallet, connection]
-  );
-
-  /* ===== Audio ===== */
+  /* --------------------- INIT CLIENT --------------------- */
   useEffect(() => {
-    audioRef.current = new Audio(AUDIO_BATTLE_THEME);
-    audioRef.current.loop = true;
-    audioRef.current.volume = 0.6;
-    audioRef.current.muted = isMuted;
     setIsClient(true);
   }, []);
 
-  const toggleSound = () => {
-    if (!audioRef.current) return;
-    if (audioRef.current.paused) {
-      audioRef.current.muted = false;
-      audioRef.current.play().catch(()=>{});
-      setIsMuted(false);
-    } else {
-      audioRef.current.pause();
-      setIsMuted(true);
-    }
-  };
+  useEffect(() => {
+    if (!wallet) return;
+    const connection = new Connection("https://api.mainnet-beta.solana.com");
 
-  /* ===== Fetch chain state ===== */
-  const fetchGameState = useCallback(async () => {
-    try {
-      const provider = getProvider(false);
-      const program = new Program(idl, PROGRAM_ID, provider);
+    const provider = new AnchorProvider(connection, wallet, {
+      preflightCommitment: "processed",
+    });
+    const program = new Program(idl, PROGRAM_ID, provider);
 
-      const acc = await program.account.gameData.fetch(GAME_ADDRESS);
-      const bal = await connection.getBalance(GAME_ADDRESS);
+    setProvider(provider);
+    setProgram(program);
+  }, [wallet]);
 
-      setGameState(acc);
-      setPot(bal / 1e9);
-
-      const ttl = acc.timeToLive.toNumber();
-      setMaxTime(ttl);
-
-      const lastFed = acc.lastFedTimestamp.toNumber();
-      const now = Math.floor(Date.now() / 1000);
-
-      if (lastFed === 0) {
-        // WAITING MODE – ALWAYS reset to full TTL
-        setTimeLeft(ttl);
-      } else {
-        setTimeLeft(Math.max(0, lastFed + ttl - now));
-      }
-    } catch(e) {
-      console.log("fetch error", e);
-    }
-  }, [getProvider, connection]);
-
-  /* ===== Realtime subscription + fallback poll ===== */
+  /* --------------------- MUSIC SETUP --------------------- */
   useEffect(() => {
     if (!isClient) return;
-    
+    if (!audioRef.current) return;
+
+    audioRef.current.volume = 0.6;
+    audioRef.current.loop = true;
+    if (!isMuted) audioRef.current.play().catch(() => {});
+  }, [isClient, isMuted]);
+
+  const toggleSound = () => {
+    setIsMuted((v) => !v);
+    if (audioRef.current) {
+      if (!isMuted) audioRef.current.pause();
+      else audioRef.current.play().catch(() => {});
+    }
+  };
+
+  /* --------------------- FETCH GAME STATE --------------------- */
+  const fetchGameState = useCallback(async () => {
+    if (!program) return;
+
+    try {
+      const acc = await program.account.gameData.fetch(GAME_ADDRESS.toString());
+      setGame(acc);
+
+      // Compute TTL
+      const now = Math.floor(Date.now() / 1000);
+      const expire = acc.lastFedTimestamp.toNumber() + acc.timeToLive;
+      const left = expire - now;
+
+      setTimeLeft(left > 0 ? left : 0);
+      setArmor(left > 0 ? Math.min(100, (left / acc.timeToLive) * 100) : 0);
+    } catch (e) {
+      console.log("fetchGameState error:", e);
+    }
+  }, [program]);
+
+  /* --------------------- SUBSCRIPTION --------------------- */
+  useEffect(() => {
+    if (!program) return;
+
     fetchGameState();
 
-    let subId = connection.onAccountChange(GAME_ADDRESS, fetchGameState, "processed");
-    const poll = setInterval(fetchGameState, 4000);
+    const interval = setInterval(fetchGameState, 4000);
+    return () => clearInterval(interval);
+  }, [program, fetchGameState]);
 
-    // FIX: countdown runs ONLY when game running
-    const ticker = setInterval(() => {
-      setTimeLeft(t => {
-        if (!gameState) return t;
-        const lastFed = gameState.lastFedTimestamp.toNumber();
-
-        if (lastFed === 0) {
-          // NEW ROUND WAITING → never countdown
-          return maxTime;
-        }
-        return Math.max(0, t - 1);
-      });
-    }, 1000);
-
-    return () => {
-      connection.removeAccountChangeListener(subId).catch(()=>{});
-      clearInterval(poll);
-      clearInterval(ticker);
-    };
-  }, [isClient, gameState, maxTime, fetchGameState]);
-
-  /* Derived states */
-  const isWaiting = gameState && gameState.lastFedTimestamp.toNumber() === 0;
-  const isDead = timeLeft <= 0 && !isWaiting;
-  const hpPercent = Math.min(100, (timeLeft / maxTime) * 100);
-
-  /* ===== FEED ===== */
-  const feedBeast = async () => {
-    if (!anchorWallet || !publicKey) {
-      if (connect) try { await connect(); } catch(e) {} 
-      else return alert("Connect wallet");
-    }
-    if (processing || isDead) return;
-
-    setProcessing(true);
-    setIsHit(true);
-    setTimeout(() => setIsHit(false), 350);
+  /* --------------------- ACTION: FEED --------------------- */
+  const smash = async () => {
+    if (!program || !provider) return alert("Wallet not connected.");
 
     try {
-      const provider = getProvider(true);
-      const program = new Program(idl, PROGRAM_ID, provider);
+      await program.methods
+        .feed()
+        .accounts({
+          gameAccount: GAME_ADDRESS,
+          player: publicKey,
+          systemProgram: web3.SystemProgram.programId,
+        })
+        .rpc();
 
-      await program.methods.feed().accounts({
-        gameAccount: GAME_ADDRESS,
-        player: publicKey,
-        systemProgram: web3.SystemProgram.programId
-      }).rpc();
-
-      // optimistic refill
-      setTimeLeft(maxTime);
-
-      setTimeout(fetchGameState, 700);
-    } catch(e) {
-      alert("Feed error: " + e.message);
-      setTimeout(fetchGameState, 700);
+      fetchGameState();
+    } catch (e) {
+      console.error("Feed error:", e);
+      alert("Feed failed.");
     }
-    setProcessing(false);
   };
 
-  /* ===== CLAIM ===== */
-  const claimPrize = async () => {
-    if (processing) return;
-    if (!anchorWallet || !publicKey) return alert("Connect wallet");
+  /* --------------------- ACTION: CLAIM --------------------- */
+  const claim = async () => {
+    if (!program || !provider) return alert("Wallet not connected.");
+    if (!game) return;
 
-    if (!isDead) return alert("Wait until 0s!");
-
-    setProcessing(true);
     try {
-      const provider = getProvider(true);
-      const program = new Program(idl, PROGRAM_ID, provider);
+      await program.methods
+        .claimReward()
+        .accounts({
+          gameAccount: GAME_ADDRESS,
+          hunter: publicKey,
+          winner: game.lastFeeder,
+        })
+        .rpc();
 
-      const winner = new PublicKey(gameState.lastFeeder);
-
-      await program.methods.claimReward().accounts({
-        gameAccount: GAME_ADDRESS,
-        hunter: publicKey,
-        winner
-      }).rpc();
-
-      alert("Claim success!");
-      await fetchGameState();
-    } catch(e) {
-      alert("Claim error: " + e.message);
+      fetchGameState();
+      alert("Claim complete!");
+    } catch (e) {
+      console.error("Claim error:", e);
+      alert("Claim failed.");
     }
-    setProcessing(false);
   };
 
+  /* --------------------- RENDER LOADING --------------------- */
   if (!isClient) return null;
+  /* =================== RENDER =================== */
 
-  /* ===== RENDER ===== */
   return (
-    <div className="game-wrapper">
-      <style>{styles}</style>
+    <div className="relative w-full h-screen overflow-hidden">
 
-      {/* BG VIDEO */}
-      <BackgroundVideo isHit={isHit} />
-
-      {/* HERO */}
-      {!isDead && <img src={IMG_HERO} className="hero-layer" />}
-      {!isDead && <img src={IMG_FIST} className="fist-layer" />}
-
-      {/* TOP BAR */}
-      <div style={{ position:"absolute", top:0, left:0, width:"100%", padding:20,
-        display:"flex", justifyContent:"space-between", alignItems:"center", zIndex:30 }}>
-        <h1 style={{ margin:0, color:"#fff", fontFamily:"Press Start 2P", fontSize:"1rem" }}>
-          WEB3 <span style={{ color:"#0ef" }}>FIGHTER</span>
-        </h1>
-        <WalletMultiButton />
-      </div>
+      {/* BACKGROUND VIDEO */}
+      <video
+        autoPlay
+        muted
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover"
+      >
+        <source src="/v4.mp4" type="video/mp4" />
+      </video>
 
       {/* MUSIC */}
-      <div className="music-btn" onClick={toggleSound}>
-        {isMuted ? "🔇" : "🔊"}
+      <audio ref={audioRef} src="/music.mp3" />
+
+      {/* TOP BAR */}
+      <div className="absolute top-4 left-4 flex gap-4">
+        <button
+          onClick={toggleSound}
+          className="px-4 py-2 bg-black/60 text-white rounded-lg border border-white/40"
+        >
+          {isMuted ? "🔇 Sound Off" : "🔊 Sound On"}
+        </button>
       </div>
 
-      {/* BOTTOM HUD */}
-      <div className="hud-overlay">
-        <div style={{ flex:2 }}>
-          <div style={{ color:"#ff3300", marginBottom:5, display:"flex", justifyContent:"space-between" }}>
-            <span>BTC ARMOR</span>
-            <span>{timeLeft}s</span>
-          </div>
+      {/* CENTER CONTENT */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center text-white">
 
-          <div className="chart-hp-frame">
-            <div className="chart-hp-fill" style={{ width:`${hpPercent}%` }}></div>
-          </div>
+        {/* ARMOR BAR */}
+        <div className="w-[300px] h-[20px] bg-black/50 rounded-full border border-white/40 overflow-hidden mb-4">
+          <div
+            className="h-full bg-green-500 transition-all duration-500"
+            style={{ width: `${armor}%` }}
+          ></div>
         </div>
 
-        <div style={{ flex:1, display:"flex", flexDirection:"column", gap:8 }}>
-          <button className="combat-btn" disabled={processing || isDead} onClick={feedBeast}>SMASH</button>
-          <button className="combat-btn btn-loot" disabled={processing || !isDead} onClick={claimPrize}>CLAIM</button>
+        {/* TIME LEFT */}
+        <div className="text-3xl font-bold mb-6 drop-shadow-lg">
+          {timeLeft > 0 ? (
+            <>⏳ {timeLeft}s Until Doom</>
+          ) : (
+            <>💀 GAME OVER — CLAIM NOW!</>
+          )}
         </div>
-      </div>
 
-      {/* TOP RIGHT HUD */}
-      <div className="extra-hud">
-        <div>Pot: <span style={{ color:"#fff" }}>{pot.toFixed(2)} SOL</span></div>
-        <div>Last: <span style={{ color:"#fff" }}>{shortenAddress(gameState?.lastFeeder?.toString() || "")}</span></div>
+        {/* ACTION BUTTONS */}
+        <div className="flex flex-col items-center gap-4">
+
+          {/* SMASH */}
+          <button
+            onClick={smash}
+            className="px-8 py-4 text-3xl bg-red-600 hover:bg-red-700 shadow-xl border border-white/40 rounded-xl"
+          >
+            🔥 FEED / SMASH
+          </button>
+
+          {/* CLAIM */}
+          <button
+            onClick={claim}
+            className="px-8 py-3 text-2xl bg-yellow-500 hover:bg-yellow-600 shadow-xl border border-white/40 rounded-xl"
+          >
+            🏆 CLAIM REWARD
+          </button>
+        </div>
+
+        {/* LAST FEEDER */}
+        {game && (
+          <div className="mt-6 text-lg opacity-90">
+            Last feeder:
+            <br />
+            {game.lastFeeder.toString().slice(0, 4)}...
+            {game.lastFeeder.toString().slice(-4)}
+          </div>
+        )}
       </div>
     </div>
   );
 }
+
