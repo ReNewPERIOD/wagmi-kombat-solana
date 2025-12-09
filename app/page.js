@@ -8,6 +8,7 @@ import idl from "./idl.json";
 import { useAnchorWallet, useWallet, ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import "@solana/wallet-adapter-react-ui/styles.css";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
 
 /* =================== CẤU HÌNH =================== */
 const PROGRAM_ID = new PublicKey("CrwC7ekPmUmmuQPutMzBXqQ4MTydjw1EVS2Zs3wpk9fc");
@@ -336,6 +337,24 @@ function GameContent() {
 // Wrapper Provider
 export default function Home() {
   const endpoint = clusterApiUrl("devnet");
+  const wallets = [new PhantomWalletAdapter()];
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <GameContent />
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  );
+  // ... (Các đoạn code khác)
+
+// Wrapper Provider
+export default function Home() {
+  const endpoint = clusterApiUrl("devnet");
+  
+  // Dòng này sẽ lỗi nếu chưa import PhantomWalletAdapter ở trên
   const wallets = [new PhantomWalletAdapter()];
 
   return (
