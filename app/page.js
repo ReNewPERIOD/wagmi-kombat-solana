@@ -5,7 +5,7 @@ import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
 import { Program, AnchorProvider, web3 } from "@project-serum/anchor";
 import idl from "./idl.json";
 
-// --- IMPORT ĐẦY ĐỦ CÁC THÀNH PHẦN VÍ ---
+// --- IMPORT VÍ ---
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets"; 
 import { useAnchorWallet, useWallet, ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
@@ -17,9 +17,7 @@ const PROGRAM_ID = new PublicKey("CrwC7ekPmUmmuQPutMzBXqQ4MTydjw1EVS2Zs3wpk9fc")
 const GAME_ADDRESS = new PublicKey("5QpRbTGvAMq6EbYFjUhK7YH9SKBEGvRrW3KHjwtrK711");
 
 /* Assets */
-const VIDEO_NORMAL   = "/v1.mp4"; 
-const VIDEO_DAMAGED  = "/v2.mp4"; 
-const VIDEO_DEFEATED = "/v3.mp4"; 
+const VIDEO_BG = "/v4.mp4"; // Chỉ dùng 1 video duy nhất
 const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
@@ -38,14 +36,10 @@ const styles = `
   }
   .animate-shake { animation: shake 0.2s ease-in-out; }
   
-  /* Video Stack */
-  .video-stack { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: #000; }
-  .bg-video-layer { 
+  .bg-video { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-    object-fit: cover; opacity: 0; transition: opacity 0.5s ease-in-out; 
-    filter: brightness(0.6);
+    object-fit: cover; filter: brightness(0.6); z-index: 0;
   }
-  .bg-video-layer.active { opacity: 1; z-index: 1; }
 
   .btn-glow { animation: glow 2s infinite; }
   @keyframes glow {
@@ -167,14 +161,6 @@ function GameContent() {
   const isWaiting = game && game.lastFedTimestamp.toNumber() === 0;
   const isDead = timeLeft === 0 && !isWaiting;
 
-  const getCurrentVideoState = () => {
-      if (isDead) return 'dead'; 
-      if (isHit) return 'damaged'; 
-      if (armor < 50 && !isWaiting) return 'damaged';
-      return 'normal';
-  };
-  const currentState = getCurrentVideoState();
-
   /* --------------------- ACTIONS --------------------- */
   const smash = async () => {
     if (!program || !publicKey || isProcessing) return;
@@ -233,12 +219,10 @@ function GameContent() {
     <div className={`relative w-full h-screen overflow-hidden ${isHit ? 'animate-shake' : ''}`}>
       <style>{styles}</style>
 
-      {/* VIDEO STACK */}
-      <div className="video-stack">
-          <video className={`bg-video-layer ${currentState === 'normal' ? 'active' : ''}`} autoPlay loop muted playsInline><source src={VIDEO_NORMAL} type="video/mp4" /></video>
-          <video className={`bg-video-layer ${currentState === 'damaged' ? 'active' : ''}`} autoPlay loop muted playsInline><source src={VIDEO_DAMAGED} type="video/mp4" /></video>
-          <video className={`bg-video-layer ${currentState === 'dead' ? 'active' : ''}`} autoPlay loop muted playsInline><source src={VIDEO_DEFEATED} type="video/mp4" /></video>
-      </div>
+      {/* VIDEO BACKGORUND (DUY NHẤT) */}
+      <video className="bg-video" autoPlay loop muted playsInline>
+          <source src={VIDEO_BG} type="video/mp4" />
+      </video>
 
       {/* LAYERS */}
       {!isDead && <img src={IMG_HERO} className="hero-layer absolute right-[2%] bottom-[20%] w-[25%] max-w-[300px] z-10 pointer-events-none drop-shadow-[0_0_20px_#00e5ff]" alt="Hero" />}
