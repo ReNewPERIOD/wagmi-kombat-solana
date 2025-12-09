@@ -8,20 +8,20 @@ import { useAnchorWallet, useWallet } from "@solana/wallet-adapter-react";
 import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
 import "@solana/wallet-adapter-react-ui/styles.css";
 
-/* =================== CONFIG =================== */
-const PROGRAM_ID = new PublicKey("FB2JH7H2zKfsiXfx6YazryNYR3TziJrVM542pQbb6TTN");
-const GAME_ADDRESS = new PublicKey("DQeCu4DA43CeMFmBghXqcFtz123tgRGruCxhvqcGoW1Y");
+/* =================== CẤU HÌNH =================== */
+const PROGRAM_ID = new PublicKey("CrwC7ekPmUmmuQPutMzBXqQ4MTydjw1EVS2Zs3wpk9fc");
+// ĐỊA CHỈ GAME (Thay mới nếu bạn chạy lại client.ts)
+const GAME_ADDRESS = new PublicKey("5QpRbTGvAMq6EbYFjUhK7YH9SKBEGvRrW3KHjwtrK711");
 
 /* Assets */
-const VIDEO_BG = "/v4.mp4"; // Đảm bảo file này có trong thư mục public
+const VIDEO_BG = "/v4.mp4"; // Đảm bảo file này nằm trong thư mục public
 const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 
-/* =================== CSS (Inject Font & Animation) =================== */
+/* =================== CSS BỔ SUNG (Animation) =================== */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap');
   
-  /* Animation rung lắc khi đấm */
   @keyframes shake {
     0% { transform: translate(0, 0); }
     25% { transform: translate(-5px, 5px); }
@@ -29,27 +29,52 @@ const styles = `
     100% { transform: translate(0, 0); }
   }
   .animate-shake { animation: shake 0.2s ease-in-out; }
+  
+  /* Hiệu ứng Pulse cho nút Start */
+  @keyframes glow {
+    0% { box-shadow: 0 0 5px #00e5ff; }
+    50% { box-shadow: 0 0 20px #00e5ff, 0 0 40px #00e5ff; }
+    100% { box-shadow: 0 0 5px #00e5ff; }
+  }
+  .btn-glow { animation: glow 2s infinite; }
 `;
+
+const shortenAddress = (address) => {
+  if (!address) return "WAITING...";
+  const str = address.toString();
+  return str.slice(0, 4) + ".." + str.slice(-4);
+};
 
 /* =================== MAIN COMPONENT =================== */
 function GameContent() {
-  const wallet = useAnchorWallet();
-  const { publicKey } = useWallet();
+  const wallet = useAnchorWallet(); // Dùng cái này để ký transaction
+  const { publicKey } = useWallet(); // Dùng cái này để lấy địa chỉ hiển thị
 
+  // State quản lý Game
   const [game, setGame] = useState(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [armor, setArmor] = useState(100);
   const [isClient, setIsClient] = useState(false);
+  
+  // State quản lý Âm thanh & UI
   const [isMuted, setIsMuted] = useState(false);
-  const [isHit, setIsHit] = useState(false); // State hiệu ứng đấm
+  const [isHit, setIsHit] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false); // Chặn spam click
+
+  // State cho Top Hitters (Đã khôi phục)
+  const [topHitters, setTopHitters] = useState([
+      { address: 'Ff3r...1a2b', hits: 15 },
+      { address: 'Aa2d...4e5f', hits: 12 },
+      { address: 'Cc9t...7y8z', hits: 8 }
+  ]);
 
   const audioRef = useRef(null);
 
-  /* --------------------- INIT (FIXED: USEMEMO) --------------------- */
-  // Sửa lỗi Cascading Render: Dùng useMemo thay vì useState+useEffect
+  /* --------------------- KHỞI TẠO (FIX LỖI CASCADING) --------------------- */
+  // Dùng useMemo để tạo Program 1 lần duy nhất khi wallet thay đổi
   const program = useMemo(() => {
     if (!wallet) return null;
-    // Chuyển về Devnet để test. Nếu muốn Mainnet thì đổi lại clusterApiUrl("mainnet-beta")
+    // Chuyển về Devnet để test (Mainnet cần tiền thật)
     const connection = new Connection(clusterApiUrl("devnet"), "processed");
     const provider = new AnchorProvider(connection, wallet, {
       preflightCommitment: "processed",
@@ -61,18 +86,17 @@ function GameContent() {
     setIsClient(true);
   }, []);
 
-  /* --------------------- MUSIC SETUP --------------------- */
+  /* --------------------- SETUP NHẠC NỀN --------------------- */
   useEffect(() => {
     if (!isClient) return;
-    // Khởi tạo Audio object
     audioRef.current = new Audio(AUDIO_BATTLE_THEME);
     audioRef.current.volume = 0.6;
     audioRef.current.loop = true;
     
-    // Thử tự phát nhạc
+    // Thử tự phát nhạc (Autoplay)
     const playPromise = audioRef.current.play();
     if (playPromise !== undefined) {
-      playPromise.catch(() => console.log("Audio autoplay blocked"));
+      playPromise.catch(() => console.log("Audio autoplay blocked by browser"));
     }
   }, [isClient]);
 
@@ -87,7 +111,7 @@ function GameContent() {
     }
   };
 
-  /* --------------------- FETCH GAME STATE --------------------- */
+  /* --------------------- FETCH GAME STATE (CÓ LOGIC FIRST BLOOD) --------------------- */
   const fetchGameState = useCallback(async () => {
     if (!program) return;
 
@@ -95,11 +119,10 @@ function GameContent() {
       const acc = await program.account.gameData.fetch(GAME_ADDRESS);
       setGame(acc);
 
-      // Compute TTL
-      const lastFed = acc.lastFedTimestamp.toNumber();
       const ttl = acc.timeToLive.toNumber();
+      const lastFed = acc.lastFedTimestamp.toNumber();
       
-      // Logic First Blood: Nếu lastFed = 0 tức là đang chờ
+      // LOGIC: Nếu lastFed = 0 -> Game đang CHỜ (Waiting)
       if (lastFed === 0) {
          setTimeLeft(ttl);
          setArmor(100);
@@ -110,21 +133,33 @@ function GameContent() {
          setArmor(left > 0 ? Math.min(100, (left / ttl) * 100) : 0);
       }
     } catch (e) {
-      console.log("fetchGameState error:", e);
+      console.log("Fetch error:", e);
     }
   }, [program]);
 
-  /* --------------------- SUBSCRIPTION --------------------- */
+  /* --------------------- VÒNG LẶP CẬP NHẬT --------------------- */
   useEffect(() => {
     if (!program) return;
     fetchGameState();
-    const interval = setInterval(fetchGameState, 1000); // Update mỗi giây để đếm ngược mượt hơn
+    
+    const interval = setInterval(() => {
+        fetchGameState();
+        // Cập nhật đếm ngược cục bộ cho mượt
+        if (game && game.lastFedTimestamp.toNumber() !== 0) {
+             setTimeLeft((prev) => Math.max(0, prev - 1));
+        }
+    }, 1000);
     return () => clearInterval(interval);
-  }, [program, fetchGameState]);
+  }, [program, fetchGameState]); // Bỏ 'game' khỏi dependency để tránh re-render liên tục
 
-  /* --------------------- ACTIONS --------------------- */
+  // Tính toán trạng thái
+  const isWaiting = game && game.lastFedTimestamp.toNumber() === 0;
+  const isDead = timeLeft === 0 && !isWaiting;
+
+  /* --------------------- HÀNH ĐỘNG: FEED / SMASH --------------------- */
   const smash = async () => {
-    if (!program || !publicKey) return alert("Wallet not connected.");
+    if (!program || !publicKey || isProcessing) return;
+    setIsProcessing(true);
 
     try {
       // Bật nhạc nếu chưa bật
@@ -140,17 +175,24 @@ function GameContent() {
           systemProgram: web3.SystemProgram.programId,
         }).rpc();
 
-      fetchGameState();
+      // Đợi 1s để blockchain cập nhật
+      setTimeout(fetchGameState, 1000);
     } catch (e) {
       console.error("Feed error:", e);
-      alert("Feed failed: " + e.message);
+      alert("Action Failed: " + e.message);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
+  /* --------------------- HÀNH ĐỘNG: CLAIM --------------------- */
   const claim = async () => {
-    if (!program || !publicKey || !game) return;
+    if (!program || !publicKey || !game || isProcessing) return;
+    
+    // Logic chặn bấm sớm (Frontend check)
     if (timeLeft > 0) return alert("Wait for timer to hit 0s!");
 
+    setIsProcessing(true);
     try {
       await program.methods.claimReward().accounts({
           gameAccount: GAME_ADDRESS,
@@ -162,15 +204,21 @@ function GameContent() {
       setTimeout(fetchGameState, 2000);
     } catch (e) {
       console.error("Claim error:", e);
-      alert("Claim failed: " + e.message);
+      if (e.message && e.message.includes("GameIsAlive")) {
+          alert("⚠️ Syncing... Please wait 3s!");
+      } else {
+          alert("Claim failed: " + e.message);
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
   if (!isClient) return null;
 
+  /* =================== RENDER GIAO DIỆN =================== */
   return (
     <div className={`relative w-full h-screen overflow-hidden ${isHit ? 'animate-shake' : ''}`}>
-      {/* Inject Styles */}
       <style>{styles}</style>
 
       {/* BACKGROUND VIDEO */}
@@ -186,20 +234,19 @@ function GameContent() {
       <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-50">
         <button
           onClick={toggleSound}
-          className="px-4 py-2 bg-black/60 text-[#00e5ff] rounded-lg border border-[#00e5ff] font-['Rajdhani'] font-bold"
+          className="px-4 py-2 bg-black/60 text-[#00e5ff] rounded-lg border border-[#00e5ff] font-['Rajdhani'] font-bold hover:bg-black/80"
         >
-          {isMuted || (audioRef.current && audioRef.current.paused) ? "🔇 SOUND OFF" : "🔊 SOUND ON"}
+          {isMuted || (audioRef.current && audioRef.current.paused) ? "🔇 OFF" : "🔊 ON"}
         </button>
 
-        {/* NÚT KẾT NỐI VÍ (QUAN TRỌNG) */}
+        {/* NÚT KẾT NỐI VÍ */}
         <WalletMultiButton style={{ backgroundColor: "#0072ff", fontFamily: "Rajdhani", fontWeight: "bold" }} />
       </div>
 
       {/* CENTER CONTENT */}
       <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10 pointer-events-none">
         
-        {/* LOGO / TITLE */}
-        <h1 className="text-4xl md:text-6xl font-['Press_Start_2P'] text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 drop-shadow-[0_0_10px_rgba(0,229,255,0.8)] mb-8 text-center">
+        <h1 className="text-3xl md:text-5xl font-['Press_Start_2P'] text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 drop-shadow-[0_0_10px_rgba(0,229,255,0.8)] mb-6 text-center">
             DOOMSDAY PET
         </h1>
 
@@ -209,58 +256,76 @@ function GameContent() {
             className="h-full bg-gradient-to-r from-red-600 to-orange-500 transition-all duration-300"
             style={{ width: `${armor}%` }}
           ></div>
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-bold font-['Rajdhani'] tracking-widest">
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-bold font-['Rajdhani'] tracking-widest text-white drop-shadow-md">
               BOSS ARMOR {armor.toFixed(0)}%
           </div>
         </div>
 
         {/* TIME LEFT */}
         <div className="text-2xl md:text-3xl font-['Rajdhani'] font-bold mb-8 text-[#00e5ff] drop-shadow-md">
-          {timeLeft > 0 ? (
-            <>⏳ {timeLeft}s UNTIL DOOM</>
+          {isWaiting ? (
+             <span className="text-green-400">READY TO START - 45s</span>
+          ) : timeLeft > 0 ? (
+             <>⏳ {timeLeft}s UNTIL DOOM</>
           ) : (
-            <span className="text-yellow-400 animate-pulse">💀 FATALITY — CLAIM BOUNTY!</span>
+             <span className="text-yellow-400 animate-pulse">💀 FATALITY — CLAIM BOUNTY!</span>
           )}
         </div>
 
-        {/* ACTION BUTTONS (Pointer events auto để bấm được) */}
+        {/* ACTION BUTTONS (Quan trọng: pointer-events-auto) */}
         <div className="flex flex-col items-center gap-4 pointer-events-auto">
-          {timeLeft > 0 ? (
-             <button
-                onClick={smash}
-                className="group relative px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-800 text-white font-['Rajdhani'] font-black text-2xl uppercase tracking-wider clip-path-polygon hover:scale-105 transition-transform active:scale-95 shadow-[0_0_20px_rgba(0,114,255,0.5)]"
-                style={{ clipPath: "polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%)" }}
-              >
-                👊 SMASH (0.005 SOL)
-             </button>
-          ) : (
+          {isDead ? (
              <button
                 onClick={claim}
-                className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-orange-600 text-black font-['Press_Start_2P'] text-sm hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,215,0,0.6)] border-2 border-white"
+                disabled={isProcessing}
+                className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-orange-600 text-black font-['Press_Start_2P'] text-sm hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,215,0,0.6)] border-2 border-white rounded-lg disabled:opacity-50"
               >
-                🏆 CLAIM REWARD
-             </button>
+                {isProcessing ? "PROCESSING..." : "🏆 CLAIM REWARD (2%)"}
+              </button>
+          ) : (
+             <button
+                onClick={smash}
+                disabled={isProcessing}
+                className={`group relative px-8 py-4 text-white font-['Rajdhani'] font-black text-2xl uppercase tracking-wider clip-path-polygon hover:scale-105 transition-transform active:scale-95 shadow-[0_0_20px_rgba(0,114,255,0.5)] disabled:opacity-50 disabled:cursor-not-allowed ${isWaiting ? 'bg-green-600 btn-glow' : 'bg-gradient-to-r from-blue-600 to-blue-800'}`}
+                style={{ clipPath: "polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%)" }}
+              >
+                {isProcessing ? "..." : (isWaiting ? "🚀 START GAME" : "👊 SMASH (0.005)")}
+              </button>
           )}
         </div>
 
-        {/* LAST FEEDER */}
-        {game && (
-          <div className="mt-8 p-4 bg-black/70 border border-[#00e5ff] text-[#00e5ff] font-['Rajdhani'] text-center rounded-lg backdrop-blur-sm">
-            <p className="text-sm text-gray-400">LAST HITTER</p>
-            <p className="text-xl font-bold tracking-widest">
-              {game.lastFeeder.toString().slice(0, 4)}...{game.lastFeeder.toString().slice(-4)}
-            </p>
-          </div>
-        )}
+        {/* LAST FEEDER & LEADERBOARD (Góc phải dưới - Đã khôi phục) */}
+        <div className="absolute bottom-4 right-4 text-right pointer-events-auto">
+            {game && (
+              <div className="mb-2 p-2 bg-black/70 border border-[#00e5ff] text-[#00e5ff] font-['Rajdhani'] rounded backdrop-blur-sm">
+                <p className="text-xs text-gray-400">LAST HITTER</p>
+                <p className="text-sm font-bold">
+                  {shortenAddress(game.lastFeeder)}
+                </p>
+              </div>
+            )}
+            
+            {/* LEADERBOARD (Giả lập để hiển thị UI) */}
+            <div className="p-3 bg-black/80 border border-red-500 text-white font-['Rajdhani'] rounded backdrop-blur-sm w-[200px]">
+                <p className="text-xs text-red-400 border-b border-red-500/30 mb-2 pb-1">TOP HITTERS</p>
+                {topHitters.map((h, i) => (
+                    <div key={i} className="flex justify-between text-xs mb-1">
+                        <span>{i+1}. {h.address}</span>
+                        <span className="text-yellow-400">{h.hits}</span>
+                    </div>
+                ))}
+            </div>
+        </div>
+
       </div>
     </div>
   );
 }
 
-// Wrap component chính trong Provider
+// Wrapper Provider
 export default function Home() {
   const endpoint = clusterApiUrl("devnet");
-  const wallets = [new PhantomWalletAdapter()]; // Nếu bạn import thêm ví khác thì điền vào đây
+  const wallets = [new PhantomWalletAdapter()];
 
   return (
     <ConnectionProvider endpoint={endpoint}>
