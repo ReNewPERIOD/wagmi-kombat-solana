@@ -17,7 +17,7 @@ const PROGRAM_ID = new PublicKey("CrwC7ekPmUmmuQPutMzBXqQ4MTydjw1EVS2Zs3wpk9fc")
 const GAME_ADDRESS = new PublicKey("5QpRbTGvAMq6EbYFjUhK7YH9SKBEGvRrW3KHjwtrK711");
 
 /* Assets */
-const VIDEO_BG = "/v4.mp4"; // Chỉ dùng 1 video duy nhất
+const VIDEO_BG = "/v4.mp4"; 
 const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
@@ -36,9 +36,36 @@ const styles = `
   }
   .animate-shake { animation: shake 0.2s ease-in-out; }
   
+  @keyframes punch-loop {
+    0% { transform: translateX(0) scale(1); }
+    20% { transform: translateX(30px) scale(0.9); } 
+    40% { transform: translateX(-180px) scale(1.1); } 
+    100% { transform: translateX(0) scale(1); }
+  }
+
   .bg-video { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
     object-fit: cover; filter: brightness(0.6); z-index: 0;
+  }
+
+  /* Layer nhân vật */
+  .hero-layer { 
+    position: absolute; right: 5%; bottom: 10%; width: 25%; max-width: 250px; 
+    z-index: 10; pointer-events: none; filter: drop-shadow(0 0 20px #00e5ff); 
+  }
+  
+  /* Nắm đấm */
+  .fist-layer { 
+    position: absolute; right: 20%; bottom: 15%; width: 40%; max-width: 600px; 
+    z-index: 20; pointer-events: none; filter: drop-shadow(0 0 15px #00e5ff);
+    animation: punch-loop 0.8s infinite ease-in-out !important; 
+  }
+
+  /* Responsive Mobile */
+  @media (max-width: 768px) {
+    .hero-layer { width: 35%; bottom: 15%; right: -5%; }
+    .fist-layer { width: 60%; bottom: 25%; right: 10%; }
+    .bg-video { object-position: 65% center; }
   }
 
   .btn-glow { animation: glow 2s infinite; }
@@ -117,12 +144,15 @@ function GameContent() {
 
     try {
       const acc = await program.account.gameData.fetch(GAME_ADDRESS);
-      setGame(acc);
+      const balance = await program.provider.connection.getBalance(GAME_ADDRESS);
+      
+      // Update Game State + Balance
+      setGame({ ...acc, balance });
 
       const ttl = acc.timeToLive.toNumber();
       const lastFed = acc.lastFedTimestamp.toNumber();
       
-      // LOGIC FIRST BLOOD
+      // Logic First Blood
       if (lastFed === 0) {
          setTimeLeft(ttl);
          setArmor(100);
@@ -149,7 +179,6 @@ function GameContent() {
     fetchGameState();
     const interval = setInterval(() => {
         fetchGameState();
-        // UI Counter Logic
         if (game && game.lastFedTimestamp.toNumber() !== 0) {
              setTimeLeft((prev) => Math.max(0, prev - 1));
         }
@@ -157,11 +186,10 @@ function GameContent() {
     return () => clearInterval(interval);
   }, [program, fetchGameState]);
 
-  /* --------------------- LOGIC TRẠNG THÁI --------------------- */
+  /* --------------------- LOGIC & ACTIONS --------------------- */
   const isWaiting = game && game.lastFedTimestamp.toNumber() === 0;
   const isDead = timeLeft === 0 && !isWaiting;
 
-  /* --------------------- ACTIONS --------------------- */
   const smash = async () => {
     if (!program || !publicKey || isProcessing) return;
     setIsProcessing(true);
@@ -215,94 +243,58 @@ function GameContent() {
 
   if (!isClient) return null;
 
+  /* =================== GIAO DIỆN (UI) MỚI =================== */
   return (
     <div className={`relative w-full h-screen overflow-hidden ${isHit ? 'animate-shake' : ''}`}>
       <style>{styles}</style>
 
-      {/* VIDEO BACKGORUND (DUY NHẤT) */}
+      {/* BACKGROUND VIDEO */}
       <video className="bg-video" autoPlay loop muted playsInline>
           <source src={VIDEO_BG} type="video/mp4" />
       </video>
 
-      {/* LAYERS */}
-      {!isDead && <img src={IMG_HERO} className="hero-layer absolute right-[2%] bottom-[20%] w-[25%] max-w-[300px] z-10 pointer-events-none drop-shadow-[0_0_20px_#00e5ff]" alt="Hero" />}
-      {(!isDead && !isWaiting) && <img src={IMG_FIST} className="fist-layer absolute right-[18%] bottom-[25%] w-[45%] max-w-[700px] z-20 pointer-events-none drop-shadow-[0_0_15px_#00e5ff]" alt="Fist" />}
+      {/* LAYERS (Hero & Fist) */}
+      {!isDead && <img src={IMG_HERO} className="hero-layer" alt="Hero" />}
+      {(!isDead && !isWaiting) && <img src={IMG_FIST} className="fist-layer" alt="Fist" />}
 
-      {/* TOP BAR */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between items-center z-50">
+      {/* --- TOP BAR --- */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-50">
+        
+        {/* Nút Sound (Góc trái) */}
         <button
           onClick={toggleSound}
-          className="px-4 py-2 bg-black/60 text-[#00e5ff] rounded-lg border border-[#00e5ff] font-['Rajdhani'] font-bold hover:bg-black/80"
+          className="px-4 py-2 bg-black/60 text-[#00e5ff] rounded-lg border border-[#00e5ff] font-['Rajdhani'] font-bold hover:bg-black/80 backdrop-blur-md"
         >
           {isMuted || (audioRef.current && audioRef.current.paused) ? "🔇 OFF" : "🔊 ON"}
         </button>
-        <WalletMultiButton style={{ backgroundColor: "#0072ff", fontFamily: "Rajdhani", fontWeight: "bold" }} />
-      </div>
 
-      {/* CENTER CONTENT */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-30 pointer-events-none">
-        
-        <h1 className="text-3xl md:text-5xl font-['Press_Start_2P'] text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-purple-600 drop-shadow-[0_0_10px_rgba(0,229,255,0.8)] mb-6 text-center">
-            DOOMSDAY PET
-        </h1>
+        {/* CỘT PHẢI: Ví + HUB THÔNG TIN (Gom nhóm lại ở đây) */}
+        <div className="flex flex-col items-end gap-2">
+            {/* Nút Ví */}
+            <WalletMultiButton style={{ backgroundColor: "#0072ff", fontFamily: "Rajdhani", fontWeight: "bold" }} />
 
-        {/* ARMOR BAR */}
-        <div className="w-[80%] max-w-[400px] h-[30px] bg-black/60 rounded-none border-2 border-red-600 overflow-hidden mb-2 relative skew-x-[-10deg]">
-          <div
-            className="h-full bg-gradient-to-r from-red-600 to-orange-500 transition-all duration-300"
-            style={{ width: `${armor}%` }}
-          ></div>
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-bold font-['Rajdhani'] tracking-widest text-white drop-shadow-md">
-              BOSS ARMOR {armor.toFixed(0)}%
-          </div>
-        </div>
+            {/* --- HUB THÔNG TIN (Ngay dưới ví) --- */}
+            {/* 1. Total Loot */}
+            <div className="w-[200px] p-2 bg-black/70 border border-[#00e5ff] text-[#00e5ff] font-['Rajdhani'] rounded backdrop-blur-md flex justify-between items-center">
+                <span className="text-xs text-gray-400">POOL</span>
+                <span className="text-lg font-bold text-yellow-400">
+                  {game?.balance ? (game.balance / 1000000000).toFixed(4) : "0.0000"} SOL
+                </span>
+            </div>
 
-        {/* TIME LEFT */}
-        <div className="text-2xl md:text-3xl font-['Rajdhani'] font-bold mb-8 text-[#00e5ff] drop-shadow-md">
-          {isWaiting ? (
-             <span className="text-green-400 animate-pulse">READY TO START - 45s</span>
-          ) : timeLeft > 0 ? (
-             <>⏳ {timeLeft}s UNTIL DOOM</>
-          ) : (
-             <span className="text-yellow-400 animate-pulse">💀 FATALITY — CLAIM BOUNTY!</span>
-          )}
-        </div>
-
-        {/* ACTION BUTTONS */}
-        <div className="flex flex-col items-center gap-4 pointer-events-auto">
-          {isDead ? (
-             <button
-                onClick={claim}
-                disabled={isProcessing}
-                className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-orange-600 text-black font-['Press_Start_2P'] text-sm hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,215,0,0.6)] border-2 border-white rounded-lg disabled:opacity-50"
-              >
-                {isProcessing ? "PROCESSING..." : "🏆 CLAIM REWARD (2%)"}
-              </button>
-          ) : (
-             <button
-                onClick={smash}
-                disabled={isProcessing}
-                className={`group relative px-8 py-4 text-white font-['Rajdhani'] font-black text-2xl uppercase tracking-wider clip-path-polygon hover:scale-105 transition-transform active:scale-95 shadow-[0_0_20px_rgba(0,114,255,0.5)] disabled:opacity-50 disabled:cursor-not-allowed ${isWaiting ? 'bg-green-600 btn-glow' : 'bg-gradient-to-r from-blue-600 to-blue-800'}`}
-                style={{ clipPath: "polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%)" }}
-              >
-                {isProcessing ? "..." : (isWaiting ? "🚀 START GAME" : "👊 SMASH (0.005)")}
-              </button>
-          )}
-        </div>
-
-        {/* LAST FEEDER & LEADERBOARD */}
-        <div className="absolute bottom-4 right-4 text-right pointer-events-auto flex flex-col items-end gap-2">
+            {/* 2. Last Hitter */}
             {game && (
-              <div className="p-2 bg-black/70 border border-[#00e5ff] text-[#00e5ff] font-['Rajdhani'] rounded backdrop-blur-sm min-w-[150px]">
-                <p className="text-xs text-gray-400">LAST HITTER</p>
-                <p className="text-sm font-bold">
+              <div className="w-[200px] p-2 bg-black/70 border border-[#00e5ff] text-[#00e5ff] font-['Rajdhani'] rounded backdrop-blur-md flex justify-between items-center">
+                <span className="text-xs text-gray-400">LAST HIT</span>
+                <span className="text-sm font-bold truncate ml-2">
                   {shortenAddress(game.lastFeeder)}
-                </p>
+                </span>
               </div>
             )}
-            
-            <div className="p-3 bg-black/80 border border-red-500 text-white font-['Rajdhani'] rounded backdrop-blur-sm w-[200px]">
-                <p className="text-xs text-red-400 border-b border-red-500/30 mb-2 pb-1">TOP HITTERS</p>
+
+            {/* 3. Top Hitters */}
+            <div className="w-[200px] p-3 bg-black/80 border border-red-500 text-white font-['Rajdhani'] rounded backdrop-blur-md">
+                <p className="text-xs text-red-400 border-b border-red-500/30 mb-2 pb-1">TOP DAMAGES</p>
                 {topHitters.map((h, i) => (
                     <div key={i} className="flex justify-between text-xs mb-1">
                         <span>{i+1}. {h.address}</span>
@@ -311,8 +303,60 @@ function GameContent() {
                 ))}
             </div>
         </div>
+      </div>
+
+      {/* --- BOTTOM CENTER (THANH MÁU + NÚT BẤM) --- */}
+      <div className="absolute bottom-[10%] left-0 right-0 flex flex-col items-center justify-end z-30 pointer-events-none pb-4">
+        
+        {/* Thanh Máu */}
+        <div className="w-[90%] max-w-[500px] h-[35px] bg-black/60 rounded-none border-2 border-red-600 overflow-hidden mb-2 relative skew-x-[-10deg] shadow-[0_0_15px_rgba(255,0,0,0.5)]">
+          <div
+            className="h-full bg-gradient-to-r from-red-600 to-orange-500 transition-all duration-300"
+            style={{ width: `${armor}%` }}
+          ></div>
+          <div className="absolute inset-0 flex items-center justify-center text-sm font-bold font-['Rajdhani'] tracking-widest text-white drop-shadow-md">
+              BOSS HP {armor.toFixed(0)}%
+          </div>
+        </div>
+
+        {/* Đồng Hồ */}
+        <div className="text-3xl md:text-4xl font-['Rajdhani'] font-black mb-6 text-[#00e5ff] drop-shadow-[0_0_10px_#00e5ff]">
+          {isWaiting ? (
+             <span className="text-green-400 animate-pulse">WAITING...</span>
+          ) : timeLeft > 0 ? (
+             <>⏳ {timeLeft}s</>
+          ) : (
+             <span className="text-yellow-400 animate-pulse">💀 FINISH HIM!</span>
+          )}
+        </div>
+
+        {/* Nút Hành Động (Pointer events auto để bấm được) */}
+        <div className="pointer-events-auto">
+          {isDead ? (
+             <button
+                onClick={claim}
+                disabled={isProcessing}
+                className="px-10 py-5 bg-gradient-to-r from-yellow-500 to-orange-600 text-black font-['Press_Start_2P'] text-sm hover:scale-105 transition-transform shadow-[0_0_30px_rgba(255,215,0,0.8)] border-4 border-white rounded-xl disabled:opacity-50"
+              >
+                {isProcessing ? "PROCESSING..." : "🏆 CLAIM BOUNTY"}
+              </button>
+          ) : (
+             <button
+                onClick={smash}
+                disabled={isProcessing}
+                className={`group relative px-12 py-5 text-white font-['Rajdhani'] font-black text-3xl uppercase tracking-wider clip-path-polygon hover:scale-105 transition-transform active:scale-95 shadow-[0_0_30px_rgba(0,114,255,0.6)] disabled:opacity-50 disabled:cursor-not-allowed ${isWaiting ? 'bg-green-600 btn-glow' : 'bg-gradient-to-r from-blue-600 to-blue-800'}`}
+                style={{ clipPath: "polygon(10% 0, 100% 0, 100% 80%, 90% 100%, 0 100%, 0 20%)" }}
+              >
+                {isProcessing ? "..." : (isWaiting ? "🚀 START" : "👊 SMASH")}
+              </button>
+          )}
+        </div>
+        
+        {/* Fee Info */}
+        {!isDead && <p className="text-gray-400 text-xs mt-2 font-['Rajdhani']">Fee: 0.005 SOL / HIT</p>}
 
       </div>
+
     </div>
   );
 }
