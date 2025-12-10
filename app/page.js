@@ -17,7 +17,7 @@ const GAME_ADDRESS = new PublicKey("5QpRbTGvAMq6EbYFjUhK7YH9SKBEGvRrW3KHjwtrK711
 
 /* Assets */
 const VIDEO_BG = "/v4.mp4"; 
-const VIDEO_POSTER = "/poster.jpg"; // ⚠️ BẠN CẦN TẠO FILE NÀY TỪ VIDEO V4
+const VIDEO_POSTER = "/poster.jpg"; 
 const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
@@ -52,10 +52,10 @@ const styles = `
   /* VIDEO OPTIMIZED */
   .bg-video { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
-    object-fit: cover; /* Lấp đầy màn hình, cắt bớt phần thừa */
+    object-fit: cover; 
     z-index: 0;
-    filter: brightness(0.85); /* Tối đi 1 xíu để nổi bật UI */
-    background: #000; /* Nền đen dự phòng */
+    filter: brightness(0.85); 
+    background: #000;
   }
 
   /* Layers */
@@ -73,7 +73,6 @@ const styles = `
   @media (max-width: 768px) {
     .hero-layer { width: 35%; bottom: 12%; right: -5%; }
     .fist-layer { width: 60%; bottom: 18%; right: 10%; }
-    /* Chỉnh tâm video trên mobile để thấy Boss rõ nhất */
     .bg-video { object-position: center center; } 
   }
 
@@ -128,10 +127,8 @@ function GameContent() {
     audioRef.current = new Audio(AUDIO_BATTLE_THEME);
     audioRef.current.volume = 0.6;
     audioRef.current.loop = true;
-    const playPromise = audioRef.current.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(() => console.log("Autoplay blocked"));
-    }
+    // Cố gắng autoplay (có thể bị chặn)
+    audioRef.current.play().catch(() => {}); 
   }, [isClient]);
 
   const toggleSound = () => {
@@ -188,22 +185,36 @@ function GameContent() {
   const isWaiting = game && game.lastFedTimestamp.toNumber() === 0;
   const isDead = timeLeft === 0 && !isWaiting;
 
+  // --- LOGIC ĐẤM (ĐÃ SỬA: TỰ ĐỘNG BẬT NHẠC) ---
   const smash = async () => {
     if (!program || !publicKey || isProcessing) return;
     setIsProcessing(true);
+
     try {
-      if(audioRef.current && audioRef.current.paused && !isMuted) audioRef.current.play();
-      setIsHit(true); setTimeout(() => setIsHit(false), 200);
+      // 🔥 TỰ ĐỘNG BẬT NHẠC KHI NHẤN START / SMASH 🔥
+      if (audioRef.current) {
+          if (audioRef.current.paused) {
+              audioRef.current.play().catch(e => console.log("Audio error:", e));
+          }
+          setIsMuted(false); // Cập nhật icon loa thành Sound On
+      }
+
+      setIsHit(true); 
+      setTimeout(() => setIsHit(false), 200);
+
       await program.methods.feed().accounts({
           gameAccount: GAME_ADDRESS,
           player: publicKey,
           systemProgram: web3.SystemProgram.programId,
       }).rpc();
+
       setTimeout(fetchGameState, 1000);
     } catch (e) {
       console.error("Feed error:", e);
-      alert("Failed: " + e.message);
-    } finally { setIsProcessing(false); }
+      alert("Action Failed: " + e.message);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const claim = async () => {
@@ -231,11 +242,7 @@ function GameContent() {
     <div className={`relative w-full h-screen overflow-hidden ${isHit ? 'animate-shake' : ''}`}>
       <style>{styles}</style>
 
-      {/* VIDEO TAG ĐƯỢC TỐI ƯU:
-          - poster: Hiện ảnh tĩnh ngay lập tức khi vào web.
-          - preload="auto": Ra lệnh tải video ngay.
-          - object-fit: cover: Tràn viền màn hình.
-      */}
+      {/* VIDEO */}
       <video 
         className="bg-video" 
         poster={VIDEO_POSTER} 
@@ -319,7 +326,9 @@ export default function Home() {
   return (
     <ConnectionProvider endpoint={endpoint}>
       <WalletProvider wallets={wallets} autoConnect>
-        <WalletModalProvider><GameContent /></WalletModalProvider>
+        <WalletModalProvider>
+          <GameContent />
+        </WalletModalProvider>
       </WalletProvider>
     </ConnectionProvider>
   );
