@@ -35,7 +35,6 @@ const styles = `
     overflow: hidden; background: #000; touch-action: none;
   }
 
-  /* Rung màn hình */
   @keyframes shake {
     0% { transform: translate(0, 0); }
     25% { transform: translate(-5px, 5px); }
@@ -44,28 +43,21 @@ const styles = `
   }
   .animate-shake { animation: shake 0.2s ease-in-out; }
   
-  /* --- CÚ ĐẤM THỰC TẾ (REALISTIC PUNCH V2) --- */
+  /* CÚ ĐẤM */
   @keyframes punch-mid {
-    0% { 
-      transform: translate(0, 0) scale(1); 
-    }
-    50% { 
-      /* Đấm tới giữa màn hình (Boss), phóng to vừa phải (1.3) thay vì quá to */
-      transform: translate(-30vw, -20vh) scale(1.3); 
-    }
-    100% { 
-      transform: translate(0, 0) scale(1); 
-    }
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(-30vw, -20vh) scale(1.3); }
+    100% { transform: translate(0, 0) scale(1); }
   }
 
-  /* --- CHỮ CHẠY (MARQUEE) --- */
+  /* MARQUEE */
   @keyframes marquee {
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
   }
   .marquee-container {
     position: absolute; top: 70px; left: 0; width: 100%; height: 30px;
-    background: rgba(0, 0, 0, 0.6); /* Nền tối hơn để nổi chữ */
+    background: rgba(0, 0, 0, 0.6);
     border-top: 1px solid #FFD700;
     border-bottom: 1px solid #FFD700;
     display: flex; align-items: center; overflow: hidden; z-index: 40;
@@ -74,9 +66,9 @@ const styles = `
   .marquee-text {
     white-space: nowrap;
     font-family: 'Press Start 2P'; font-size: 10px; 
-    color: #39ff14; /* MÀU XANH NEON - Dễ đọc hơn màu vàng trên nền đen */
+    color: #39ff14; 
     text-shadow: 0 0 5px #000;
-    animation: marquee 30s linear infinite; /* CHẬM LẠI (30s thay vì 15s) */
+    animation: marquee 30s linear infinite; 
     padding-left: 100%; 
   }
 
@@ -91,21 +83,20 @@ const styles = `
     z-index: 10; pointer-events: none; filter: drop-shadow(0 0 20px #00e5ff); 
   }
   
-  /* Cấu hình lại Nắm Đấm (Nhỏ hơn & Chậm hơn) */
   .fist-layer { 
-    position: absolute; right: 8%; bottom: 18%; /* Gần Hero hơn */
-    width: 25%; max-width: 350px; /* NHỎ HƠN (25% thay vì 40%) */
+    position: absolute; right: 8%; bottom: 18%; 
+    width: 25%; max-width: 350px; 
     z-index: 20; pointer-events: none; 
     filter: drop-shadow(0 0 10px #00e5ff);
     transform-origin: bottom right; 
-    animation: punch-mid 1.2s infinite ease-in-out !important; /* CHẬM HƠN (1.2s thay vì 0.6s) */
+    animation: punch-mid 1.2s infinite ease-in-out !important; 
   }
 
   @media (max-width: 768px) {
     .hero-layer { width: 35%; bottom: 12%; right: -5%; }
-    .fist-layer { width: 45%; bottom: 15%; right: 0%; } /* Mobile chỉnh lại chút */
+    .fist-layer { width: 45%; bottom: 15%; right: 0%; } 
     .bg-video { object-position: center center; } 
-    .marquee-text { font-size: 9px; animation-duration: 25s; } /* Mobile cũng chậm lại */
+    .marquee-text { font-size: 9px; animation-duration: 25s; } 
   }
 
   .btn-glow { animation: glow 2s infinite; }
@@ -168,31 +159,35 @@ function GameContent() {
     else { audioRef.current.pause(); setIsMuted(true); }
   };
 
-  /* --- HIỆU ỨNG VÀNG KHỔNG LỒ (MEGA GOLD) --- */
+  /* --- HIỆU ỨNG VÀNG CỰC ĐẠI (MEGA GOLD - Z-INDEX FIXED) --- */
   const triggerGoldExplosion = () => {
     const duration = 5000;
     const end = Date.now() + duration;
 
     (function frame() {
+      // Cấu hình chuẩn để luôn đè lên mọi thứ
+      const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 9999 };
+
       confetti({
-        particleCount: 15, // Nhiều hạt hơn
+        ...defaults,
+        particleCount: 15,
         angle: 60,
         spread: 100,
         origin: { x: 0, y: 0.6 },
         colors: ['#FFD700', '#DAA520'], 
-        scalar: 4.0, // <--- CỤC VÀNG SIÊU TO (Gấp 4 lần bình thường)
-        shapes: ['square'], // Chỉ rơi hình vuông (giống thỏi vàng/tiền)
-        gravity: 0.8, // Rơi chậm hơn chút
-        drift: 0,
+        scalar: 4.0, // Vàng to
+        shapes: ['square'], 
+        gravity: 0.8,
       });
       
       confetti({
+        ...defaults,
         particleCount: 15,
         angle: 120,
         spread: 100,
         origin: { x: 1, y: 0.6 },
         colors: ['#FFD700', '#DAA520'],
-        scalar: 4.0, // <--- CỤC VÀNG SIÊU TO
+        scalar: 4.0,
         shapes: ['square'],
         gravity: 0.8,
       });
@@ -261,7 +256,7 @@ function GameContent() {
     } finally { setIsProcessing(false); }
   };
 
-  // --- CLAIM ---
+  // --- CLAIM (DELAY ALERT FIX) ---
   const claim = async () => {
     if (!program || !publicKey || !game || isProcessing) return;
     if (timeLeft > 0) return alert(`Wait! Game ends in ${timeLeft}s`);
@@ -274,14 +269,18 @@ function GameContent() {
           gameAccount: GAME_ADDRESS, hunter: publicKey, winner: game.lastFeeder,
       }).rpc();
       
-      triggerGoldExplosion(); // Nổ vàng to
+      // 1. Kích hoạt hiệu ứng ngay lập tức
+      triggerGoldExplosion();
 
-      const isWinner = publicKey.toString() === game.lastFeeder.toString();
-      if (isWinner) {
-          alert(`🏆 CHAMPION! BẠN ĐÃ CHIẾN THẮNG & NHẬN THƯỞNG!`);
-      } else {
-          alert(`⚡ BÀN TAY VÀNG! BẠN ĐÃ CƯỚP ĐƯỢC 2% GIẢI THƯỞNG!`);
-      }
+      // 2. Delay Alert 500ms để hiệu ứng kịp hiện ra trước khi bị Alert chặn
+      setTimeout(() => {
+          const isWinner = publicKey.toString() === game.lastFeeder.toString();
+          if (isWinner) {
+              alert(`🏆 CHAMPION! BẠN ĐÃ CHIẾN THẮNG & NHẬN THƯỞNG!`);
+          } else {
+              alert(`⚡ BÀN TAY VÀNG! BẠN ĐÃ CƯỚP ĐƯỢC 2% GIẢI THƯỞNG!`);
+          }
+      }, 500); // <--- MAGIC NUMBER: Chờ 0.5s mới hiện bảng thông báo
       
       setStatusMsg("GAME RESETTING...");
       setTimeout(fetchGameState, 2000);
@@ -295,8 +294,13 @@ function GameContent() {
                 await program.methods.claimReward().accounts({
                     gameAccount: GAME_ADDRESS, hunter: publicKey, winner: game.lastFeeder,
                 }).rpc();
+                
                 triggerGoldExplosion();
-                alert("🏆 SUCCESS! Bounty Claimed!");
+                
+                setTimeout(() => {
+                    alert("🏆 SUCCESS! Bounty Claimed!");
+                }, 500);
+
                 setTimeout(fetchGameState, 2000);
              } catch (retryErr) { alert("⚠️ Syncing. Click again!"); } 
              finally { setIsProcessing(false); setStatusMsg(""); }
@@ -320,7 +324,7 @@ function GameContent() {
           <source src={VIDEO_BG} type="video/mp4" />
       </video>
 
-      {/* DÒNG CHỮ CHẠY (MARQUEE) - Chữ Xanh Neon, Chậm lại */}
+      {/* MARQUEE */}
       <div className="marquee-container">
           <div className="marquee-text">
               📢 ALL PLAYERS PARTICIPATING IN WAGMI KOMBAT WILL RECEIVE 2000 $KOMBAT TOKENS AIRDROP AFTER 1 WEEK! 🚀 PLAY NOW TO EARN! 💎
@@ -328,8 +332,6 @@ function GameContent() {
       </div>
 
       {!isDead && <img src={IMG_HERO} className="hero-layer" alt="Hero" />}
-      
-      {/* NẮM ĐẤM 3D: Nhỏ hơn, chậm hơn, đánh vào giữa */}
       {(!isDead && !isWaiting) && <img src={IMG_FIST} className="fist-layer" alt="Fist" />}
 
       {/* TOP BAR */}
