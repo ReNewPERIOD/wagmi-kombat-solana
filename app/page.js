@@ -24,7 +24,7 @@ const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
 const IMG_FIST = "https://img.upanh.moe/1fdsF7NQ/FIST2-removebg-webp.webp";
 
-/* =================== CSS (CLEAN & FIXED) =================== */
+/* =================== CSS (FIXED ANIMATION & MARQUEE) =================== */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap');
@@ -35,6 +35,7 @@ const styles = `
     overflow: hidden; background: #000; touch-action: none;
   }
 
+  /* Rung màn hình */
   @keyframes shake {
     0% { transform: translate(0, 0); }
     25% { transform: translate(-5px, 5px); }
@@ -43,37 +44,70 @@ const styles = `
   }
   .animate-shake { animation: shake 0.2s ease-in-out; }
   
-  @keyframes punch-loop {
-    0% { transform: translateX(0) scale(1); }
-    20% { transform: translateX(30px) scale(0.9); } 
-    40% { transform: translateX(-180px) scale(1.1); } 
-    100% { transform: translateX(0) scale(1); }
+  /* --- CÚ ĐẤM 3D (REALISTIC PUNCH) --- */
+  /* Xuất phát từ vị trí Hero (nhỏ) -> Phóng to ra giữa (lớn) -> Thu về */
+  @keyframes punch-3d {
+    0% { 
+      transform: translate(0, 0) scale(0.5); /* Bắt đầu nhỏ tại chỗ */
+      opacity: 0.8;
+    }
+    10% { opacity: 1; }
+    50% { 
+      transform: translate(-30vw, -10vh) scale(1.8); /* Đấm ra xa & Phóng to cực đại */
+    }
+    100% { 
+      transform: translate(0, 0) scale(0.5); /* Thu về nhỏ lại */
+      opacity: 0.8;
+    }
   }
 
-  /* VIDEO FULLSCREEN - Z-INDEX THẤP NHẤT */
+  /* --- CHỮ CHẠY (MARQUEE) --- */
+  @keyframes marquee {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+  }
+  .marquee-container {
+    position: absolute; top: 70px; left: 0; width: 100%; height: 30px;
+    background: rgba(255, 215, 0, 0.2); /* Nền vàng mờ */
+    border-top: 1px solid rgba(255, 215, 0, 0.5);
+    border-bottom: 1px solid rgba(255, 215, 0, 0.5);
+    display: flex; align-items: center; overflow: hidden; z-index: 40;
+    pointer-events: none;
+  }
+  .marquee-text {
+    white-space: nowrap;
+    font-family: 'Press Start 2P'; font-size: 10px; color: #FFD700;
+    text-shadow: 0 0 5px #000;
+    animation: marquee 15s linear infinite;
+    padding-left: 100%; /* Bắt đầu từ ngoài màn hình */
+  }
+
   .bg-video { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
     object-fit: cover; z-index: 0;
-    filter: brightness(0.9); /* Sáng hơn chút */
-    background: #000;
+    filter: brightness(0.9); background: #000;
   }
 
-  /* Layers Character */
   .hero-layer { 
     position: absolute; right: 5%; bottom: 15%; width: 25%; max-width: 250px; 
     z-index: 10; pointer-events: none; filter: drop-shadow(0 0 20px #00e5ff); 
   }
+  
+  /* Cấu hình lại vị trí nắm đấm để khớp với Hero */
   .fist-layer { 
-    position: absolute; right: 20%; bottom: 20%; width: 40%; max-width: 600px; 
-    z-index: 20; pointer-events: none; filter: drop-shadow(0 0 15px #00e5ff);
-    animation: punch-loop 0.8s infinite ease-in-out !important; 
+    position: absolute; right: 5%; bottom: 20%; /* Đặt gốc trùng với Hero */
+    width: 40%; max-width: 600px; 
+    z-index: 20; pointer-events: none; 
+    filter: drop-shadow(0 0 15px #00e5ff);
+    transform-origin: bottom right; /* Phóng to từ góc dưới phải */
+    animation: punch-3d 0.6s infinite ease-in-out !important; /* Tốc độ đấm nhanh hơn xíu */
   }
 
-  /* Responsive Mobile */
   @media (max-width: 768px) {
     .hero-layer { width: 35%; bottom: 12%; right: -5%; }
-    .fist-layer { width: 60%; bottom: 18%; right: 10%; }
+    .fist-layer { width: 60%; bottom: 18%; right: -5%; }
     .bg-video { object-position: center center; } 
+    .marquee-text { font-size: 9px; animation-duration: 10s; }
   }
 
   .btn-glow { animation: glow 2s infinite; }
@@ -106,7 +140,7 @@ function GameContent() {
 
   const [topHitters, setTopHitters] = useState([{ address: 'Wait...', hits: 0 }]);
   const audioRef = useRef(null);
-  const videoRef = useRef(null); // Ref cho video để ép chạy
+  const videoRef = useRef(null);
 
   const program = useMemo(() => {
     if (!wallet) return null;
@@ -117,19 +151,15 @@ function GameContent() {
 
   useEffect(() => { setIsClient(true); }, []);
 
-  // AUTO PLAY VIDEO & AUDIO
   useEffect(() => {
     if (!isClient) return;
-    
-    // Audio Setup
     audioRef.current = new Audio(AUDIO_BATTLE_THEME);
     audioRef.current.volume = 0.6;
     audioRef.current.loop = true;
     audioRef.current.play().catch(() => {}); 
 
-    // Video Setup (Force Play)
     if (videoRef.current) {
-        videoRef.current.muted = true; // Bắt buộc mute để autoplay
+        videoRef.current.muted = true;
         videoRef.current.play().catch(e => console.log("Video autoplay blocked:", e));
     }
   }, [isClient]);
@@ -140,14 +170,38 @@ function GameContent() {
     else { audioRef.current.pause(); setIsMuted(true); }
   };
 
-  /* --- HIỆU ỨNG VÀNG BAY --- */
+  /* --- HIỆU ỨNG VÀNG BAY (X10 SỨC MẠNH) --- */
   const triggerGoldExplosion = () => {
-    const duration = 3000;
+    const duration = 5000; // Nổ trong 5 giây
     const end = Date.now() + duration;
+
+    // Hàm bắn pháo hoa liên tục
     (function frame() {
-      confetti({ particleCount: 5, angle: 60, spread: 55, origin: { x: 0 }, colors: ['#FFD700', '#FFA500'] });
-      confetti({ particleCount: 5, angle: 120, spread: 55, origin: { x: 1 }, colors: ['#FFD700', '#FFA500'] });
-      if (Date.now() < end) requestAnimationFrame(frame);
+      // Bắn từ trái sang
+      confetti({
+        particleCount: 10, // Tăng số lượng hạt mỗi lần bắn
+        angle: 60,
+        spread: 80, // Tán rộng hơn
+        origin: { x: 0, y: 0.6 },
+        colors: ['#FFD700', '#FDB931', '#FFFF00'], // Màu vàng kim các loại
+        scalar: 1.5, // Hạt to gấp 1.5 lần
+        shapes: ['circle', 'square'], // Đa dạng hình
+      });
+      
+      // Bắn từ phải sang
+      confetti({
+        particleCount: 10,
+        angle: 120,
+        spread: 80,
+        origin: { x: 1, y: 0.6 },
+        colors: ['#FFD700', '#FDB931', '#FFFFFF'],
+        scalar: 1.5,
+        shapes: ['circle', 'square'],
+      });
+
+      if (Date.now() < end) {
+        requestAnimationFrame(frame);
+      }
     }());
   };
 
@@ -209,7 +263,7 @@ function GameContent() {
     } finally { setIsProcessing(false); }
   };
 
-  // --- CLAIM (RÚT GỌN THÔNG BÁO) ---
+  // --- CLAIM (X10 GOLD EFFECT) ---
   const claim = async () => {
     if (!program || !publicKey || !game || isProcessing) return;
     if (timeLeft > 0) return alert(`Wait! Game ends in ${timeLeft}s`);
@@ -222,9 +276,8 @@ function GameContent() {
           gameAccount: GAME_ADDRESS, hunter: publicKey, winner: game.lastFeeder,
       }).rpc();
       
-      triggerGoldExplosion();
+      triggerGoldExplosion(); // Kích hoạt hiệu ứng vàng x10
 
-      // THÔNG BÁO GỌN NHẸ
       const isWinner = publicKey.toString() === game.lastFeeder.toString();
       if (isWinner) {
           alert(`🏆 CHAMPION! BẠN ĐÃ CHIẾN THẮNG & NHẬN THƯỞNG!`);
@@ -265,23 +318,25 @@ function GameContent() {
     <div className={`relative w-full h-screen overflow-hidden ${isHit ? 'animate-shake' : ''}`}>
       <style>{styles}</style>
       
-      {/* VIDEO BG (FIXED REF) */}
-      <video 
-        ref={videoRef}
-        className="bg-video" 
-        poster={VIDEO_POSTER} 
-        autoPlay loop muted playsInline 
-        preload="auto"
-      >
+      <video ref={videoRef} className="bg-video" poster={VIDEO_POSTER} autoPlay loop muted playsInline preload="auto">
           <source src={VIDEO_BG} type="video/mp4" />
       </video>
 
+      {/* DÒNG CHỮ CHẠY (MARQUEE) */}
+      <div className="marquee-container">
+          <div className="marquee-text">
+              📢 ALL PLAYERS PARTICIPATING IN WAGMI KOMBAT WILL RECEIVE 2000 $KOMBAT TOKENS AIRDROP AFTER 1 WEEK! 🚀 PLAY NOW TO EARN! 💎
+          </div>
+      </div>
+
       {!isDead && <img src={IMG_HERO} className="hero-layer" alt="Hero" />}
+      
+      {/* NẮM ĐẤM 3D: Chỉ hiện khi đánh đấm */}
       {(!isDead && !isWaiting) && <img src={IMG_FIST} className="fist-layer" alt="Fist" />}
 
       {/* TOP BAR */}
       <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-50 pointer-events-auto">
-        <button onClick={toggleSound} className="w-8 h-8 md:w-auto md:h-auto md:px-4 md:py-2 bg-black/60 text-[#00e5ff] rounded-full md:rounded-lg border border-[#00e5ff] font-['Rajdhani'] font-bold flex items-center justify-center">
+        <button onClick={toggleSound} className="w-8 h-8 md:w-auto md:h-auto md:px-4 md:py-2 bg-black/60 text-[#00e5ff] rounded-full md:rounded-lg border border-[#00e5ff] font-['Rajdhani'] font-bold flex items-center justify-center backdrop-blur-md">
           {isMuted || (audioRef.current && audioRef.current.paused) ? "🔇" : "🔊"}
         </button>
 
