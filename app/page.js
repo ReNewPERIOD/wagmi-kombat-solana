@@ -23,7 +23,7 @@ const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
 const IMG_FIST = "https://img.upanh.moe/1fdsF7NQ/FIST2-removebg-webp.webp";
 
-/* =================== CSS (NO SHADOW - BRIGHT & CLEAR) =================== */
+/* =================== CSS =================== */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap');
@@ -35,48 +35,39 @@ const styles = `
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* --- CẤU TRÚC NỀN CHUẨN --- */
+  /* --- HỆ THỐNG NỀN --- */
   .bg-container {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: 0; 
-    background-color: #000;
+    z-index: 0; background-color: #000;
   }
 
-  /* ẢNH POSTER: Z-INDEX 0 */
+  /* 1. Ảnh Poster: Luôn hiện, làm nền chuẩn */
   .bg-poster {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    object-fit: cover; 
-    z-index: 0; 
+    object-fit: cover; z-index: 0;
   }
 
-  /* VIDEO: Z-INDEX 1 (Đè lên ảnh) */
+  /* 2. Video: Mặc định ẨN (opacity 0) để tránh bóng ma/đen */
   .bg-video { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    object-fit: cover; 
-    z-index: 1;
-    /* 🔥 ĐÃ XÓA FILTER BRIGHTNESS -> KHÔNG CÒN BÓNG ĐEN 🔥 */
-  }
-
-  /* GAME UI: Z-INDEX 10 */
-  .game-ui { 
-    position: absolute; width: 100%; height: 100%; top: 0; left: 0; 
-    z-index: 10; 
-    pointer-events: none; 
-  }
-
-  /* --- HIỆU ỨNG RUNG MẠNH (IMPACT SHAKE) --- */
-  @keyframes heavy-shake {
-    0% { transform: translate(0, 0) rotate(0deg); }
-    25% { transform: translate(-10px, 10px) rotate(-1deg); }
-    50% { transform: translate(10px, -5px) rotate(1deg); }
-    75% { transform: translate(-5px, 5px) rotate(0deg); }
-    100% { transform: translate(0, 0) rotate(0deg); }
+    object-fit: cover; z-index: 1; 
+    opacity: 0; 
+    transition: opacity 0.5s ease-in;
   }
   
-  /* Class rung áp dụng cho container ngoài cùng */
-  .shake-active { 
-    animation: heavy-shake 0.3s cubic-bezier(.36,.07,.19,.97) both; 
+  /* Chỉ hiện khi video ĐANG CHẠY */
+  .bg-video.playing {
+    opacity: 1;
   }
+
+  /* UI LAYER */
+  .game-ui { 
+    position: absolute; width: 100%; height: 100%; top: 0; left: 0; 
+    z-index: 10; pointer-events: none; 
+  }
+
+  @keyframes shake { 0% { transform: translate(0, 0); } 25% { transform: translate(-5px, 5px); } 75% { transform: translate(5px, -5px); } 100% { transform: translate(0, 0); } }
+  .shake-active { animation: shake 0.2s ease-in-out; }
   
   @keyframes punch-mid { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30vw, -20vh) scale(1.3); } 100% { transform: translate(0, 0) scale(1); } }
 
@@ -134,10 +125,12 @@ function GameContent() {
   const [isHit, setIsHit] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); // State kiểm soát video
   
   const [winnerModal, setWinnerModal] = useState({ show: false, title: "", msg: "" });
   const [topHitters, setTopHitters] = useState([{ address: 'Wait...', hits: 0 }]);
   
+  // Dùng audioRef để điều khiển thẻ <audio>
   const audioRef = useRef(null);
   const videoRef = useRef(null);
 
@@ -150,35 +143,35 @@ function GameContent() {
 
   useEffect(() => { setIsClient(true); }, []);
 
-  // --- ASSETS INIT ---
+  // --- UNLOCK AUDIO & VIDEO ON TOUCH ---
   useEffect(() => {
     if (!isClient) return;
-    
-    // Audio
-    audioRef.current = new Audio(AUDIO_BATTLE_THEME);
-    audioRef.current.volume = 0.6;
-    audioRef.current.loop = true;
 
-    // Video
-    if (videoRef.current) {
-        videoRef.current.muted = true;
-        videoRef.current.playsInline = true;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.play().catch(e => {});
-    }
-
-    const unlock = () => {
+    const unlockMedia = () => {
+        // Unlock Audio
         if (audioRef.current && audioRef.current.paused) {
-            audioRef.current.play().then(() => setIsMuted(false)).catch(() => {});
+            audioRef.current.play()
+                .then(() => setIsMuted(false))
+                .catch(e => console.log("Audio waiting..."));
         }
+        // Unlock Video (Nếu nó chưa chạy)
         if (videoRef.current && videoRef.current.paused) {
-            videoRef.current.play().catch(() => {});
+            videoRef.current.play().catch(e => console.log("Video waiting..."));
         }
     };
-    window.addEventListener('click', unlock);
-    window.addEventListener('touchstart', unlock);
-    return () => { window.removeEventListener('click', unlock); window.removeEventListener('touchstart', unlock); };
+
+    window.addEventListener('click', unlockMedia);
+    window.addEventListener('touchstart', unlockMedia);
+    return () => { 
+        window.removeEventListener('click', unlockMedia); 
+        window.removeEventListener('touchstart', unlockMedia); 
+    };
   }, [isClient]);
+
+  // Handle Video State
+  const onVideoPlay = () => {
+      setIsVideoPlaying(true); // Video chạy -> Hiện lên (Opacity 1)
+  };
 
   const toggleSound = () => {
     if (!audioRef.current) return;
@@ -233,13 +226,11 @@ function GameContent() {
           gameAccount: GAME_ADDRESS, player: publicKey, systemProgram: web3.SystemProgram.programId,
       }).rpc();
       
+      // Play Audio/Video force
       if(audioRef.current) audioRef.current.play().catch(()=>{});
       if(videoRef.current) videoRef.current.play().catch(()=>{});
 
-      // Kích hoạt Rung
-      setIsHit(true); 
-      setTimeout(() => setIsHit(false), 300);
-
+      setIsHit(true); setTimeout(() => setIsHit(false), 300);
       setStatusMsg("HIT CONFIRMED!");
       setTimeout(() => setStatusMsg(""), 2000);
       setTimeout(fetchGameState, 1000);
@@ -299,27 +290,30 @@ function GameContent() {
   if (!isClient) return null;
 
   return (
-    // ÁP DỤNG CLASS RUNG CHO TOÀN BỘ TRANG WEB
+    // THẺ CHA CÓ RUNG KHI ĐẤM (isHit)
     <div className={`relative w-full h-screen overflow-hidden ${isHit ? 'shake-active' : ''}`}>
       <style>{styles}</style>
       
-      {/* CẤU TRÚC Z-INDEX CHUẨN:
-         1. CONTAINER (Z=0)
-         2. POSTER (Z=0, SIBLING)
-         3. VIDEO (Z=1, SIBLING) -> Sẽ đè lên Poster
-      */}
+      {/* BACKGROUND CONTAINER */}
       <div className="bg-container">
+          {/* Lớp 1: Ảnh Poster */}
           <img src={VIDEO_POSTER} className="bg-poster" alt="poster" />
+          
+          {/* Lớp 2: Video (Tàng hình cho đến khi chạy) */}
+          {/* QUAN TRỌNG: Không dùng thuộc tính poster="" ở đây nữa để tránh lỗi ghosting */}
           <video 
             ref={videoRef} 
-            className="bg-video" 
-            poster={VIDEO_POSTER} 
+            className={`bg-video ${isVideoPlaying ? 'playing' : ''}`} 
             autoPlay loop muted playsInline 
             preload="auto"
+            onPlay={onVideoPlay} // Video chạy mới hiện lên
           >
               <source src={VIDEO_BG} type="video/mp4" />
           </video>
       </div>
+
+      {/* AUDIO TAG ẨN (Để quản lý âm thanh tốt hơn trên mobile) */}
+      <audio ref={audioRef} src={AUDIO_BATTLE_THEME} loop />
 
       <div className="game-ui">
           {!isDead && <img src={IMG_HERO} className="hero-layer" alt="Hero" />}
@@ -334,7 +328,7 @@ function GameContent() {
 
       <div className="absolute top-2 left-2 right-2 flex justify-between items-start z-50 pointer-events-auto">
         <button onClick={toggleSound} className="w-8 h-8 md:w-auto md:h-auto md:px-4 md:py-2 bg-black/60 text-[#00e5ff] rounded-full md:rounded-lg border border-[#00e5ff] font-['Rajdhani'] font-bold flex items-center justify-center backdrop-blur-md">
-          {isMuted || (audioRef.current && audioRef.current.paused) ? "🔇" : "🔊"}
+          {isMuted ? "🔇" : "🔊"}
         </button>
 
         <div className="flex flex-col items-end gap-1 md:gap-2">
