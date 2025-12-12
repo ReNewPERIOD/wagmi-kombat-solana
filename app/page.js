@@ -5,9 +5,9 @@ import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
 import { Program, AnchorProvider, web3 } from "@project-serum/anchor";
 import idl from "./idl.json";
 
-// --- ĐÃ XÓA HOÀN TOÀN IMPORT CONFETTI ---
+// KHÔNG DÙNG CONFETTI ĐỂ TRÁNH CRASH
+// import confetti from "canvas-confetti"; 
 
-// IMPORT VÍ
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets"; 
 import { useAnchorWallet, useWallet, ConnectionProvider, WalletProvider } from "@solana/wallet-adapter-react";
 import { WalletModalProvider, WalletMultiButton } from "@solana/wallet-adapter-react-ui";
@@ -25,7 +25,7 @@ const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
 const IMG_FIST = "https://img.upanh.moe/1fdsF7NQ/FIST2-removebg-webp.webp";
 
-/* =================== CSS =================== */
+/* =================== CSS (FIXED Z-INDEX STACKING) =================== */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap');
@@ -37,36 +37,42 @@ const styles = `
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* --- HỆ THỐNG NỀN (AN TOÀN TUYỆT ĐỐI) --- */
-  .bg-wrapper {
+  /* --- CẤU TRÚC Z-INDEX CHUẨN (THEO CHỈ ĐẠO CỦA BẠN) --- */
+  
+  /* 1. CONTAINER CHÍNH: Z-INDEX = 0 (KHÔNG ĐỂ -1 NỮA) */
+  .bg-container {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    z-index: -1;
+    z-index: 0; /* <--- FIXED: ĐƯA VỀ 0 */
     background-color: #000;
-    /* DÒNG NÀY CỨU MÀN HÌNH ĐEN: Set ảnh nền trực tiếp cho khung */
-    background-image: url('${VIDEO_POSTER}');
-    background-size: cover;
-    background-position: center;
   }
 
-  /* Video đè lên trên ảnh nền */
+  /* 2. ẢNH POSTER (SIBLING): Z-INDEX = 0 (Nằm dưới) */
+  .bg-poster {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    object-fit: cover; 
+    z-index: 0; 
+  }
+
+  /* 3. VIDEO (SIBLING): Z-INDEX = 1 (Nằm trên ảnh) */
   .bg-video { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     object-fit: cover; 
-    z-index: 1; /* Nằm trên ảnh nền */
-    filter: brightness(0.8);
+    z-index: 1; /* <--- VIDEO ĐÈ LÊN POSTER */
+    filter: brightness(0.9);
   }
 
-  /* --- UI & ANIMATION --- */
-  .game-ui { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 10; pointer-events: none; }
-
-  @keyframes shake {
-    0% { transform: translate(0, 0); } 25% { transform: translate(-5px, 5px); } 75% { transform: translate(5px, -5px); } 100% { transform: translate(0, 0); }
+  /* 4. GAME UI LAYER: Z-INDEX = 10 (Nằm trên cùng) */
+  .game-ui { 
+    position: absolute; width: 100%; height: 100%; top: 0; left: 0; 
+    z-index: 10; /* <--- UI CAO HƠN HẲN */
+    pointer-events: none; 
   }
+
+  /* --- ANIMATIONS & COMPONENTS --- */
+  @keyframes shake { 0% { transform: translate(0, 0); } 25% { transform: translate(-5px, 5px); } 75% { transform: translate(5px, -5px); } 100% { transform: translate(0, 0); } }
   .shake-active { animation: shake 0.2s ease-in-out; }
   
-  @keyframes punch-mid {
-    0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30vw, -20vh) scale(1.3); } 100% { transform: translate(0, 0) scale(1); }
-  }
+  @keyframes punch-mid { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30vw, -20vh) scale(1.3); } 100% { transform: translate(0, 0) scale(1); } }
 
   .hero-layer { position: absolute; right: 5%; bottom: 15%; width: 25%; max-width: 250px; z-index: 10; filter: drop-shadow(0 0 20px #00e5ff); }
   .fist-layer { position: absolute; right: 8%; bottom: 18%; width: 25%; max-width: 350px; z-index: 20; filter: drop-shadow(0 0 10px #00e5ff); transform-origin: bottom right; animation: punch-mid 1.2s infinite ease-in-out !important; }
@@ -98,7 +104,7 @@ const styles = `
   @media (max-width: 768px) {
     .hero-layer { width: 35%; bottom: 12%; right: -5%; }
     .fist-layer { width: 45%; bottom: 15%; right: 0%; } 
-    .bg-video, .bg-wrapper { object-position: center center; } 
+    .bg-video, .bg-poster { object-position: center center; } 
     .marquee-text { font-size: 9px; animation-duration: 25s; } 
   }
 `;
@@ -138,7 +144,7 @@ function GameContent() {
 
   useEffect(() => { setIsClient(true); }, []);
 
-  // --- INIT AUDIO & VIDEO ---
+  // --- ASSETS INIT ---
   useEffect(() => {
     if (!isClient) return;
     
@@ -147,15 +153,14 @@ function GameContent() {
     audioRef.current.volume = 0.6;
     audioRef.current.loop = true;
 
-    // Video: Force Play cơ bản
+    // Video: Force Play
     if (videoRef.current) {
         videoRef.current.muted = true;
         videoRef.current.playsInline = true;
         videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.play().catch(e => {}); // Nếu lỗi thì thôi, đã có ảnh nền lo
+        videoRef.current.play().catch(e => {});
     }
 
-    // Touch Unlock
     const unlock = () => {
         if (audioRef.current && audioRef.current.paused) {
             audioRef.current.play().then(() => setIsMuted(false)).catch(() => {});
@@ -218,12 +223,10 @@ function GameContent() {
     setStatusMsg("CONFIRM WALLET...");
 
     try {
-      // 1. Gọi Ví
       await program.methods.feed().accounts({
           gameAccount: GAME_ADDRESS, player: publicKey, systemProgram: web3.SystemProgram.programId,
       }).rpc();
       
-      // 2. Ký xong -> Chạy nhạc & Video
       if(audioRef.current) audioRef.current.play().catch(()=>{});
       if(videoRef.current) videoRef.current.play().catch(()=>{});
 
@@ -250,7 +253,7 @@ function GameContent() {
           gameAccount: GAME_ADDRESS, hunter: publicKey, winner: game.lastFeeder,
       }).rpc();
       
-      // CHỈ HIỆN MODAL - KHÔNG CÓ HIỆU ỨNG GÂY CRASH
+      // CHỈ HIỆN MODAL
       setTimeout(() => {
           const isWinner = publicKey.toString() === game.lastFeeder.toString();
           setWinnerModal({
@@ -291,15 +294,17 @@ function GameContent() {
     <div className="relative w-full h-screen overflow-hidden">
       <style>{styles}</style>
       
-      {/* WRAPPER NỀN:
-         - Background Image set trong CSS (chắc chắn hiện).
-         - Video đè lên trên. Nếu video lỗi -> User thấy Background Image.
+      {/* CẤU TRÚC Z-INDEX CHUẨN ĐƯỢC BẠN YÊU CẦU:
+         1. CONTAINER (Z=0)
+         2. IMAGE (Z=0, SIBLING)
+         3. VIDEO (Z=1, SIBLING)
       */}
-      <div className="bg-wrapper">
+      <div className="bg-container">
+          <img src={VIDEO_POSTER} className="bg-poster" alt="poster" />
           <video 
             ref={videoRef} 
             className="bg-video" 
-            poster={VIDEO_POSTER} 
+            poster={VIDEO_POSTER}
             autoPlay loop muted playsInline 
             preload="auto"
           >
