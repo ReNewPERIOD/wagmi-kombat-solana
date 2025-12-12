@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Doomsday Pet",
-  description: "Web3 Pet Game",
+  title: "WAGMI KOMBA",
+  description: "The ultimate click-to-earn game on Solana",
 };
 
 import { ReactNode } from "react";
