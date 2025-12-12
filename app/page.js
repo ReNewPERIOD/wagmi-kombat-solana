@@ -5,7 +5,7 @@ import { Connection, PublicKey, clusterApiUrl } from "@solana/web3.js";
 import { Program, AnchorProvider, web3 } from "@project-serum/anchor";
 import idl from "./idl.json";
 
-// ❌ ĐÃ XÓA HOÀN TOÀN CONFETTI (Tuyệt đối không thêm lại)
+// --- ĐÃ XÓA HOÀN TOÀN IMPORT CONFETTI ---
 
 // IMPORT VÍ
 import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets"; 
@@ -25,7 +25,7 @@ const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
 const IMG_FIST = "https://img.upanh.moe/1fdsF7NQ/FIST2-removebg-webp.webp";
 
-/* =================== CSS (AN TOÀN TUYỆT ĐỐI) =================== */
+/* =================== CSS =================== */
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap');
@@ -37,40 +37,41 @@ const styles = `
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* --- HỆ THỐNG NỀN BẤT TỬ (IMMORTAL BG) --- */
-  /* Lớp cha chứa tất cả: Có sẵn ảnh nền cứng */
-  .bg-container {
+  /* --- HỆ THỐNG NỀN (AN TOÀN TUYỆT ĐỐI) --- */
+  .bg-wrapper {
     position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
     z-index: -1;
-    /* CỨU CÁNH: Nếu video đen, user vẫn thấy ảnh này */
+    background-color: #000;
+    /* DÒNG NÀY CỨU MÀN HÌNH ĐEN: Set ảnh nền trực tiếp cho khung */
     background-image: url('${VIDEO_POSTER}');
     background-size: cover;
     background-position: center;
-    background-color: #111;
   }
 
-  /* Video đè lên trên. QUAN TRỌNG: mix-blend-mode để khử màu đen nếu video lỗi */
+  /* Video đè lên trên ảnh nền */
   .bg-video { 
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     object-fit: cover; 
-    z-index: 0;
+    z-index: 1; /* Nằm trên ảnh nền */
+    filter: brightness(0.8);
   }
 
-  /* --- GAME UI --- */
-  .game-ui { 
-    position: absolute; width: 100%; height: 100%; top: 0; left: 0; 
-    z-index: 10; pointer-events: none; 
-  }
+  /* --- UI & ANIMATION --- */
+  .game-ui { position: absolute; width: 100%; height: 100%; top: 0; left: 0; z-index: 10; pointer-events: none; }
 
-  @keyframes shake { 0% { transform: translate(0, 0); } 25% { transform: translate(-5px, 5px); } 75% { transform: translate(5px, -5px); } 100% { transform: translate(0, 0); } }
+  @keyframes shake {
+    0% { transform: translate(0, 0); } 25% { transform: translate(-5px, 5px); } 75% { transform: translate(5px, -5px); } 100% { transform: translate(0, 0); }
+  }
   .shake-active { animation: shake 0.2s ease-in-out; }
   
-  @keyframes punch-mid { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30vw, -20vh) scale(1.3); } 100% { transform: translate(0, 0) scale(1); } }
+  @keyframes punch-mid {
+    0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-30vw, -20vh) scale(1.3); } 100% { transform: translate(0, 0) scale(1); }
+  }
 
   .hero-layer { position: absolute; right: 5%; bottom: 15%; width: 25%; max-width: 250px; z-index: 10; filter: drop-shadow(0 0 20px #00e5ff); }
   .fist-layer { position: absolute; right: 8%; bottom: 18%; width: 25%; max-width: 350px; z-index: 20; filter: drop-shadow(0 0 10px #00e5ff); transform-origin: bottom right; animation: punch-mid 1.2s infinite ease-in-out !important; }
 
-  /* MODAL WINNER */
+  /* WINNER MODAL */
   .winner-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0,0,0,0.9); z-index: 99999; 
@@ -97,7 +98,7 @@ const styles = `
   @media (max-width: 768px) {
     .hero-layer { width: 35%; bottom: 12%; right: -5%; }
     .fist-layer { width: 45%; bottom: 15%; right: 0%; } 
-    .bg-video { object-position: center center; } 
+    .bg-video, .bg-wrapper { object-position: center center; } 
     .marquee-text { font-size: 9px; animation-duration: 25s; } 
   }
 `;
@@ -137,7 +138,7 @@ function GameContent() {
 
   useEffect(() => { setIsClient(true); }, []);
 
-  // --- INIT ASSETS ---
+  // --- INIT AUDIO & VIDEO ---
   useEffect(() => {
     if (!isClient) return;
     
@@ -146,15 +147,15 @@ function GameContent() {
     audioRef.current.volume = 0.6;
     audioRef.current.loop = true;
 
-    // Video: Cố gắng chạy, nhưng nếu thất bại thì kệ nó (đã có ảnh nền đỡ lưng)
+    // Video: Force Play cơ bản
     if (videoRef.current) {
-        videoRef.current.muted = true; // Bắt buộc để autoplay
+        videoRef.current.muted = true;
         videoRef.current.playsInline = true;
         videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.play().catch(() => {});
+        videoRef.current.play().catch(e => {}); // Nếu lỗi thì thôi, đã có ảnh nền lo
     }
 
-    // Sự kiện chạm màn hình để bật tiếng & Ép video chạy nếu đang dừng
+    // Touch Unlock
     const unlock = () => {
         if (audioRef.current && audioRef.current.paused) {
             audioRef.current.play().then(() => setIsMuted(false)).catch(() => {});
@@ -163,7 +164,6 @@ function GameContent() {
             videoRef.current.play().catch(() => {});
         }
     };
-    
     window.addEventListener('click', unlock);
     window.addEventListener('touchstart', unlock);
     return () => { window.removeEventListener('click', unlock); window.removeEventListener('touchstart', unlock); };
@@ -223,11 +223,10 @@ function GameContent() {
           gameAccount: GAME_ADDRESS, player: publicKey, systemProgram: web3.SystemProgram.programId,
       }).rpc();
       
-      // 2. Kích hoạt Âm thanh & Video (nếu đang dừng)
+      // 2. Ký xong -> Chạy nhạc & Video
       if(audioRef.current) audioRef.current.play().catch(()=>{});
       if(videoRef.current) videoRef.current.play().catch(()=>{});
 
-      // 3. Rung & Cập nhật
       setIsHit(true); setTimeout(() => setIsHit(false), 300);
       setStatusMsg("HIT CONFIRMED!");
       setTimeout(() => setStatusMsg(""), 2000);
@@ -251,7 +250,7 @@ function GameContent() {
           gameAccount: GAME_ADDRESS, hunter: publicKey, winner: game.lastFeeder,
       }).rpc();
       
-      // CHỈ HIỆN MODAL (Không Confetti)
+      // CHỈ HIỆN MODAL - KHÔNG CÓ HIỆU ỨNG GÂY CRASH
       setTimeout(() => {
           const isWinner = publicKey.toString() === game.lastFeeder.toString();
           setWinnerModal({
@@ -292,11 +291,11 @@ function GameContent() {
     <div className="relative w-full h-screen overflow-hidden">
       <style>{styles}</style>
       
-      {/* BACKGROUND CONTAINER:
-         - Background Image set trong CSS (bg-container).
-         - Video đè lên trên. Nếu video lỗi/đen, ta vẫn có ảnh ở dưới.
+      {/* WRAPPER NỀN:
+         - Background Image set trong CSS (chắc chắn hiện).
+         - Video đè lên trên. Nếu video lỗi -> User thấy Background Image.
       */}
-      <div className="bg-container">
+      <div className="bg-wrapper">
           <video 
             ref={videoRef} 
             className="bg-video" 
