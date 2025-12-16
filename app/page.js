@@ -16,7 +16,7 @@ import "@solana/wallet-adapter-react-ui/styles.css";
 /* ================= ASSETS ================= */
 const VIDEO_BG = "/v4.mp4";
 
-/* --- MUSIC (loop) --- */
+/* MUSIC (loop) */
 const MUSIC = {
   IDLE:   "https://files.catbox.moe/ind1d6.mp3",
   ACTION: "https://files.catbox.moe/7d9x1a.mp3",
@@ -24,7 +24,7 @@ const MUSIC = {
   WIN:    "https://files.catbox.moe/l9f5a2.mp3",
 };
 
-/* --- SFX (one-shot) --- */
+/* SFX (one shot) */
 const SFX = {
   SMASH: "https://files.catbox.moe/8bq3r2.mp3",
   WIN:   "https://files.catbox.moe/z9w8x1.mp3",
@@ -32,60 +32,63 @@ const SFX = {
 
 /* ================= GAME ================= */
 function Game() {
-  /* ---------- MEDIA REFS ---------- */
+  /* ---------- REFS ---------- */
   const videoRef = useRef(null);
 
   const musicRef = useRef({});
   const sfxRef = useRef({});
-  const currentMusic = useRef(null);
+  const currentMusicRef = useRef(null);
 
   const unlockedRef = useRef(false);
 
   /* ---------- STATE ---------- */
-  const [soundOn, setSoundOn] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
   const [gameState, setGameState] = useState("IDLE");
-  const [perf, setPerf] = useState("HIGH");
   const [status, setStatus] = useState("");
+  const [perf, setPerf] = useState("HIGH");
 
   /* =====================================================
-     🔓 USER GESTURE UNLOCK (PHANTOM CORE)
+     🔓 UNLOCK MEDIA (ABSOLUTE SAFE)
+     CHỈ GỌI TRONG USER GESTURE
   ===================================================== */
   const unlockMedia = useCallback(() => {
     if (unlockedRef.current) return;
 
-    // init music
-    Object.keys(MUSIC).forEach(k => {
-      const a = new Audio(MUSIC[k]);
+    // Init music
+    Object.entries(MUSIC).forEach(([key, src]) => {
+      const a = new Audio(src);
       a.loop = true;
       a.volume = 0.6;
-      musicRef.current[k] = a;
+      musicRef.current[key] = a;
     });
 
-    // init sfx
-    Object.keys(SFX).forEach(k => {
-      const a = new Audio(SFX[k]);
-      a.loop = false;
-      a.volume = 0.9;
-      sfxRef.current[k] = a;
+    // Init SFX
+    Object.entries(SFX).forEach(([key, src]) => {
+      const a = new Audio(src);
+      a.volume = 1.0;
+      sfxRef.current[key] = a;
     });
 
-    // start idle silently to unlock
-    musicRef.current.IDLE
-      .play()
-      .then(() => {
-        musicRef.current.IDLE.pause();
-        unlockedRef.current = true;
-        setSoundOn(true);
-      })
-      .catch(() => {});
+    // HARD UNLOCK (no promise trust)
+    try {
+      const a = musicRef.current.IDLE;
+      a.muted = true;
+      a.play();
+      a.pause();
+      a.currentTime = 0;
+      a.muted = false;
+    } catch (e) {}
+
+    unlockedRef.current = true;
+    setAudioReady(true);
   }, []);
 
   /* =====================================================
-     🎼 MUSIC ENGINE (NO OVERLAP)
+     🎼 MUSIC ENGINE (NO OVERLAP – NO FAIL)
   ===================================================== */
   const playMusic = useCallback((state) => {
-    if (!soundOn || !unlockedRef.current) return;
-    if (currentMusic.current === state) return;
+    if (!unlockedRef.current) return;
+    if (currentMusicRef.current === state) return;
 
     Object.values(musicRef.current).forEach(a => {
       a.pause();
@@ -94,37 +97,42 @@ function Game() {
 
     const track = musicRef.current[state];
     if (track) {
-      track.play().catch(() => {});
-      currentMusic.current = state;
+      try {
+        track.play();
+        currentMusicRef.current = state;
+      } catch {}
     }
-  }, [soundOn]);
+  }, []);
 
   /* =====================================================
      🔊 SFX ENGINE
   ===================================================== */
   const playSFX = (name) => {
-    if (!soundOn || !unlockedRef.current) return;
+    if (!unlockedRef.current) return;
     const s = sfxRef.current[name];
     if (!s) return;
-    s.currentTime = 0;
-    s.play().catch(() => {});
+    try {
+      s.currentTime = 0;
+      s.play();
+    } catch {}
   };
 
   /* =====================================================
-     🎧 GAME STATE → MUSIC
+     GAME STATE → MUSIC
   ===================================================== */
   useEffect(() => {
+    if (!audioReady) return;
     playMusic(gameState);
-  }, [gameState, playMusic]);
+  }, [gameState, audioReady, playMusic]);
 
   /* =====================================================
-     ⚡ PERFORMANCE AI (FPS)
+     ⚡ PERFORMANCE MONITOR (SAFE)
   ===================================================== */
   useEffect(() => {
-    let last = performance.now();
     let frames = 0;
+    let last = performance.now();
 
-    const tick = (now) => {
+    const loop = (now) => {
       frames++;
       if (now - last >= 1000) {
         const fps = frames;
@@ -136,13 +144,13 @@ function Game() {
         else if (fps < 40) setPerf("MID");
         else setPerf("HIGH");
       }
-      requestAnimationFrame(tick);
+      requestAnimationFrame(loop);
     };
-    requestAnimationFrame(tick);
+    requestAnimationFrame(loop);
   }, []);
 
   /* =====================================================
-     🎥 VIDEO GOVERNOR
+     VIDEO GOVERNOR
   ===================================================== */
   useEffect(() => {
     const v = videoRef.current;
@@ -153,52 +161,49 @@ function Game() {
       v.style.display = "none";
     } else {
       v.style.display = "block";
-      v.style.filter =
-        perf === "LOW" ? "brightness(0.6)" : "none";
+      v.style.filter = perf === "LOW" ? "brightness(0.6)" : "none";
       v.play().catch(() => {});
     }
   }, [perf]);
 
   /* =====================================================
-     👁 VISIBILITY (PHANTOM BACKGROUND)
+     VISIBILITY (PHANTOM SAFE)
   ===================================================== */
   useEffect(() => {
-    const onHide = () => {
-      Object.values(musicRef.current).forEach(a => a.pause());
+    const handler = () => {
+      if (document.hidden) {
+        Object.values(musicRef.current).forEach(a => a.pause());
+      } else if (audioReady) {
+        playMusic(gameState);
+      }
     };
-    const onShow = () => {
-      playMusic(gameState);
-    };
-    document.addEventListener("visibilitychange", () => {
-      document.hidden ? onHide() : onShow();
-    });
-    return () => {};
-  }, [gameState, playMusic]);
+    document.addEventListener("visibilitychange", handler);
+    return () => document.removeEventListener("visibilitychange", handler);
+  }, [audioReady, gameState, playMusic]);
 
   /* =====================================================
      🎮 ACTIONS
   ===================================================== */
-  const smash = () => {
-    unlockMedia();
+  const onSmash = () => {
     playSFX("SMASH");
     setGameState("ACTION");
     setStatus("💥 SMASH!");
     setTimeout(() => setGameState("IDLE"), 1200);
   };
 
-  const tense = () => {
+  const onTense = () => {
     setGameState("TENSE");
     setStatus("😈 FINAL SECONDS...");
   };
 
-  const win = () => {
+  const onWin = () => {
     playSFX("WIN");
     setGameState("WIN");
     setStatus("🏆 YOU WIN!");
   };
 
   /* =====================================================
-     🖥 UI
+     UI
   ===================================================== */
   return (
     <div className="relative w-full h-screen bg-black overflow-hidden">
@@ -221,6 +226,15 @@ function Game() {
           <WalletMultiButton />
         </div>
 
+        {!audioReady && (
+          <button
+            onPointerDown={unlockMedia}
+            className="mb-6 px-6 py-3 bg-blue-600 text-white font-bold rounded-xl animate-pulse"
+          >
+            🔊 TAP TO ENABLE SOUND
+          </button>
+        )}
+
         {status && (
           <div className="mb-4 text-yellow-400 font-bold animate-pulse">
             {status}
@@ -228,29 +242,28 @@ function Game() {
         )}
 
         <button
-          onClick={smash}
+          onPointerDown={() => {
+            if (!audioReady) unlockMedia();
+            onSmash();
+          }}
           className="px-10 py-4 bg-red-600 text-white font-black text-2xl rounded-xl mb-3"
         >
           👊 SMASH
         </button>
 
         <button
-          onClick={tense}
+          onPointerDown={onTense}
           className="px-8 py-3 bg-purple-600 text-white rounded-xl mb-3"
         >
           😈 FINAL SECONDS
         </button>
 
         <button
-          onClick={win}
+          onPointerDown={onWin}
           className="px-8 py-3 bg-yellow-500 text-black rounded-xl"
         >
           🏆 WIN
         </button>
-
-        <p className="mt-4 text-xs text-white/40">
-          Tap once to unlock sound (Phantom Safe)
-        </p>
       </div>
     </div>
   );
