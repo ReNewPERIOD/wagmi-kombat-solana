@@ -18,8 +18,7 @@ const GAME_ADDRESS = new PublicKey("AeMy2SpyKG2fyEESiEsWRtj6JsRUrXQrC4MwjZj2AnR4
 /* Assets */
 const VIDEO_BG = "/v4.mp4"; 
 const VIDEO_POSTER = "/poster.jpg"; 
-const AUDIO_BATTLE_THEME = "https://files.catbox.moe/ind1d6.mp3";
-
+const AUDIO_BATTLE_THEME = "/battle.mp3";
 const IMG_HERO = "https://img.upanh.moe/HTQcpVQD/web3-removebg-webp.webp";
 const IMG_FIST = "https://img.upanh.moe/1fdsF7NQ/FIST2-removebg-webp.webp";
 
